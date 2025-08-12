@@ -1,0 +1,3 @@
+[submodule "fshd_pipeline"]
+	path = fshd_pipeline
+	url = git@github.com:neysa-15/fshd_pipeline.git

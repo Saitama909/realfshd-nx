@@ -48,3 +48,5 @@ Thumbs.db
 
 # test related
 /test/tmp
+SAMPLE/
+test/data
