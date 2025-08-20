@@ -228,9 +228,9 @@ PIPELINE_LOG=${MONITOR_PARENT_DIR}/realfreq_pipeline_time.log
 REALFREQ_PROG_LOG=${MONITOR_PARENT_DIR}/realfreq_prog.log
 
 which inotifywait &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] inotifywait not found! On ubuntu: sudo apt install inotify-tools"$NORMAL; exit 1; }
-[ -z ${REALFREQ} ] && export REALFREQ=realfreq
-${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
-[ -z ${REF} ] && echo $RED"[realfreq.sh] REF not set. realfreq-program will start in f5c/nanopolish mode (expecting TSV)."$NORMAL
+# [ -z ${REALFREQ} ] && export REALFREQ=realfreq
+# ${REALFREQ} -V &> /dev/null || { echo -e $RED"[$SCRIPT_NAME] realfreq not found! Add realfreq to PATH or export REALFREQ=/path/to/realfreq"$NORMAL; exit 1;}
+# [ -z ${REF} ] && echo $RED"[realfreq.sh] REF not set. realfreq-program will start in f5c/nanopolish mode (expecting TSV)."$NORMAL
 
 # Perform pipeline tool check
 "${PIPELINE_SCRIPT}" -c || { echo -e $RED"[$SCRIPT_NAME] Pipeline script tool check failed. Exiting."$NORMAL; exit 1; }
@@ -322,7 +322,8 @@ if ! $realtime; then # If non-realtime option set
     echo "[$SCRIPT_NAME] Non realtime conversion of all files in $MONITOR_PARENT_DIR"
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
+    #find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
 
 else # Else assume realtime analysis is desired
 
@@ -336,7 +337,7 @@ else # Else assume realtime analysis is desired
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
         "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
-        
+
     else
         echo "[$SCRIPT_NAME] running"
         test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
@@ -344,9 +345,9 @@ else # Else assume realtime analysis is desired
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
         "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
-        
+
     fi
-    
+
     echo "[$SCRIPT_NAME] No new ${MONITOR_EXTENSION} files found in last ${TIME_INACTIVE} seconds."
     echo "[$SCRIPT_NAME] converting left overs"
 
@@ -355,7 +356,7 @@ else # Else assume realtime analysis is desired
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
     "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
-    
+
 fi
 
 test -e $FAILED_LIST && echo -e $RED"[$SCRIPT_NAME] $(wc -l $FAILED_LIST) files failed the pipeline. See $FAILED_LIST for the list"$NORMAL

@@ -42,21 +42,25 @@ shift $((OPTIND-1))
 
 [ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
 [ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
-[ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
-[ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
-[ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
+#[ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
+[ -z ${SLOW5_DORADO} ] && export SLOW5_DORADO=slow5-dorado
+# [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
+# [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
+[ -z ${FSHD_PIPELINE_WRAPPER} ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
 $BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
-command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
-$MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
-$SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
+#command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
+$SLOW5_DORADO --version &> /dev/null || die "[pipeline.sh] slow5-dorado not found. Add to PATH or export SLOW5_DORADO=/path/to/slow5-dorado. Exiting."
+# $MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
+# $SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
 
-EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
+#EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
 
-[ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
-[ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=/path/to/dorado_model. Exiting."
-[ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
+#[ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
+[ -z ${DORADO_MODEL_PATH} ] && die "[pipeline.sh] MODEL_PATH not set. export MODEL_PATH=/path/to/model. Exiting."
+[ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=dorado_model. Exiting."
+# [ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
 
 #====================User End - Tool check====================
 
@@ -111,6 +115,7 @@ do
     SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
     UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unaln.sam
     FASTQ_FILEPATH=$SAM_DIR/$P5_PREFIX.fastq
+    FSHD_OUTPATH=$SAM_DIR/$P5_PREFIX.fshd.out
     UNSORTED_BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unsorted.bam
     BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
@@ -119,32 +124,35 @@ do
     ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "blue-crab failed. check $LOG_FILEPATH" $P5_FILEPATH
     t2=$(date)
     echo -e "$P5_FILEPATH\tp2s\t${t1}\t${t2}" >> ${TIME_LOG}
-
-    ${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
+    ${SLOW5_DORADO} basecaller --modified-bases 5mCG_5hmCG -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL} ${SLOW5_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
+    #${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
     t3=$(date)
-    echo -e "$P5_FILEPATH\teel\t${t2}\t${t3}" >> ${TIME_LOG}
+    echo -e "$P5_FILEPATH\tbasemethcall\t${t2}\t${t3}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || failed "samtools fastq failed. check $LOG_FILEPATH" $P5_FILEPATH
+    # ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || failed "samtools fastq failed. check $LOG_FILEPATH" $P5_FILEPATH
+
+    ${FSHD_PIPELINE_WRAPPER} $UNALN_SAM_FILEPATH ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
+
     t4=$(date)
-    echo -e "$P5_FILEPATH\tsam-fastq\t${t3}\t${t4}" >> ${TIME_LOG}
+    echo -e "$P5_FILEPATH\tfshd\t${t3}\t${t4}" >> ${TIME_LOG}
 
-    ${MINIMAP2} -t 8 -ax map-ont --sam-hit-only -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || failed "minimap2 failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t5=$(date)
-    echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${TIME_LOG}
+    # ${MINIMAP2} -t 8 -ax map-ont -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || failed "minimap2 failed. check $LOG_FILEPATH" $P5_FILEPATH
+    # t5=$(date)
+    # echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools sort failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t6=$(date)
-    echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${TIME_LOG}
+    # ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools sort failed. check $LOG_FILEPATH" $P5_FILEPATH
+    # t6=$(date)
+    # echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${TIME_LOG}
 
-    ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools index failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t7=$(date)
-    echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
+    # ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools index failed. check $LOG_FILEPATH" $P5_FILEPATH
+    # t7=$(date)
+    # echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
 
     echo "[pipeline.sh] Done $P5_FILEPATH"
 
     PIPELINE_OUTPUT="$BAM_FILEPATH"
     #=======================User End - Pipeline=======================
-    
+
     echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
