@@ -27,5 +27,5 @@ source ${REALPATH}/venv3/bin/activate
 # 0:44.51
 
 #/usr/bin/time -v ${REALPATH}/fshd1_script.sh --input-ubam reads.bam
-/usr/bin/time -v ${REALPATH}/fshd1_script.sh --input-ubam  /data/hasindu/realfshd/test/data/positive/AS2603/QGXHXX240243_supmeth_unaligned.bam
+/usr/bin/time -v ${REALPATH}/fshd1_script.sh --input-ubam  ${REALPATH}/../test/data/positive/AS2603/QGXHXX240243_supmeth_unaligned.bam
 # 1:47.76
