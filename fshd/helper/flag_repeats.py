@@ -52,8 +52,8 @@ def analyse_bed(bed_data):
                     overlapping_coords.extend([f"{s1}-{e1}", f"{s2}-{e2}"])
 
         # remove duplicates in overlaps
-        overlapping_labels = list(set(overlapping_labels))
-        overlapping_coords = list(set(overlapping_coords))
+        overlapping_labels = list(dict.fromkeys(overlapping_labels))
+        overlapping_coords = list(dict.fromkeys(overlapping_coords))
 
         results[(read_id, strand)] = {
             'gaps': gap_found,
