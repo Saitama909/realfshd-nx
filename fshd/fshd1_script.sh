@@ -15,14 +15,14 @@ set -e # <-- abort on any error
 # Default inputs
 INPUT_UBAM=""                            # Unaligned BAM
 INPUT_FASTQ=""
-REF=/data/hasindu/fshd_pipeline/genome/hs1.fa           # Reference genome
 # REF_DIR=$(dirname "$REF")
 REALPATH=$(dirname "$(readlink -f "$0")")
+REF=$REALPATH/genome/hs1.fa           # Reference genome
 echo $REALPATH
 REGION_BED=${REALPATH}/inputs/d4z4_region.chm13.bed
 FEATURES_FASTA=${REALPATH}/inputs/features.fasta
 SHORT_FEATURES=${REALPATH}/inputs/short_features.fasta
-PROBES=${REALPATH}inputs/probes.fasta
+PROBES=${REALPATH}/inputs/probes.fasta
 PREFIX="SAMPLE"
 OUTDIR="$PREFIX"
 HAPLOTYPE_REFS=${REALPATH}/inputs/d4z4_repeats.fasta  # Fasta file containing haplotype-specific references
@@ -297,9 +297,9 @@ awk '$5 >= 0.25 && $5 <= 0.75 {print $1, $2, $3, $5}' "${OUTDIR}/${PREFIX}_meth_
 # Remove intermediate files
 rm "${OUTDIR}/${PREFIX}_meth_reads.high_prob.bedGraph" "${OUTDIR}/${PREFIX}_meth_reads.low_prob.bedGraph" "${OUTDIR}/${PREFIX}_meth_reads.undefined.bedGraph"
 
-# Create plotly reports
- python3 $REALPATH/helper/report_plotly.py \
-     --main_tsv "${OUTDIR}/${PREFIX}_mapped_features_summary.tsv"
+# # Create plotly reports
+#  python3 $REALPATH/helper/report_plotly.py \
+#      --main_tsv "${OUTDIR}/${PREFIX}_mapped_features_summary.tsv"
 
 # Remove temp created fastq/ubam
 if [[ $ubam_exist ]]; then
