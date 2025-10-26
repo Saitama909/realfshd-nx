@@ -47,6 +47,7 @@ shift $((OPTIND-1))
 # [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
 # [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
 [ -z ${FSHD_PIPELINE_WRAPPER} ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
+[ -z ${FSHDTOOLS} ] && export FSHD_TOOLS=fshdtools
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
 $BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
@@ -54,6 +55,7 @@ $BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add t
 $SLOW5_DORADO --version &> /dev/null || die "[pipeline.sh] slow5-dorado not found. Add to PATH or export SLOW5_DORADO=/path/to/slow5-dorado. Exiting."
 # $MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
 # $SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
+$FSHDTOOLS --version &> /dev/null || die "[pipeline.sh] fshdtools not found. Add to PATH or export FSHDTOOLS=/path/to/fshdtools. Exiting."
 
 #EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
 
@@ -113,6 +115,7 @@ do
     test -d $SAM_DIR/ || { mkdir -p $SAM_DIR/; echo "[pipeline.sh] Created $SAM_DIR/. SAM files will be here."; }
 
     SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
+    SLOW5_LONG_FILEPATH=$SLOW5_DIR/$P5_PREFIX.long.blow5
     UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unaln.sam
     FASTQ_FILEPATH=$SAM_DIR/$P5_PREFIX.fastq
     FSHD_OUTPATH=$SAM_DIR/$P5_PREFIX.fshd.out
@@ -124,17 +127,22 @@ do
     ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "blue-crab failed. check $LOG_FILEPATH" $P5_FILEPATH
     t2=$(date)
     echo -e "$P5_FILEPATH\tp2s\t${t1}\t${t2}" >> ${TIME_LOG}
+
+    ${FSHDTOOLS} ${SLOW5_FILEPATH} -o ${SLOW5_LONG_FILEPATH} >> $LOG_FILEPATH 2>&1 || failed "fshdtools failed. check $LOG_FILEPATH" $P5_FILEPATH
+    t3=$(date)
+    echo -e "$P5_FILEPATH\tlong\t${t2}\t${t3}" >> ${TIME_LOG}
+
     ${SLOW5_DORADO} basecaller --modified-bases 5mCG_5hmCG -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL} ${SLOW5_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
     #${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t3=$(date)
-    echo -e "$P5_FILEPATH\tbasemethcall\t${t2}\t${t3}" >> ${TIME_LOG}
+    t4=$(date)
+    echo -e "$P5_FILEPATH\tbasemethcall\t${t3}\t${t4}" >> ${TIME_LOG}
 
     # ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || failed "samtools fastq failed. check $LOG_FILEPATH" $P5_FILEPATH
 
     ${FSHD_PIPELINE_WRAPPER} $UNALN_SAM_FILEPATH ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
 
-    t4=$(date)
-    echo -e "$P5_FILEPATH\tfshd\t${t3}\t${t4}" >> ${TIME_LOG}
+    t5=$(date)
+    echo -e "$P5_FILEPATH\tfshd\t${t4}\t${t5}" >> ${TIME_LOG}
 
     # ${MINIMAP2} -t 8 -ax map-ont -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || failed "minimap2 failed. check $LOG_FILEPATH" $P5_FILEPATH
     # t5=$(date)
