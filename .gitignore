@@ -41,7 +41,7 @@ Thumbs.db
 /.vscode
 
 # binaries
-/realfreq
+/fshdtools
 /htslib
 /scripts/realtime-p2s
 /temp

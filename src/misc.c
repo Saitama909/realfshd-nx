@@ -11,8 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include "error.h"
+
 
 /*
 
@@ -129,3 +128,4 @@ void print_size(const char* name, uint64_t bytes)
     else
         fprintf(stderr, "[%s] %s : %.1f %s\n", __func__, name, count, suffixes[s]);
 }
+

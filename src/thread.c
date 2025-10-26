@@ -30,7 +30,7 @@ SOFTWARE.
 
 
 #include <pthread.h>
-#include "minimod.h"
+#include "fshd.h"
 #include "error.h"
 #include "misc.h"
 
@@ -102,7 +102,7 @@ void pthread_db(core_t* core, db_t* db, void (*func)(core_t*,db_t*,int)){
     int32_t t, ret;
     int32_t i = 0;
     int32_t num_thread = core->opt.num_thread;
-    int32_t step = (db->n_bam_recs + num_thread - 1) / num_thread;
+    int32_t step = (db->n_rec + num_thread - 1) / num_thread;
     //todo : check for higher num of threads than the data
     //current works but many threads are created despite
 
@@ -112,8 +112,8 @@ void pthread_db(core_t* core, db_t* db, void (*func)(core_t*,db_t*,int)){
         pt_args[t].db = db;
         pt_args[t].starti = i;
         i += step;
-        if (i > db->n_bam_recs) {
-            pt_args[t].endi = db->n_bam_recs;
+        if (i > db->n_rec) {
+            pt_args[t].endi = db->n_rec;
         } else {
             pt_args[t].endi = i;
         }
@@ -144,7 +144,7 @@ void work_db(core_t* core, db_t* db, void (*func)(core_t*,db_t*,int)){
 
     if (core->opt.num_thread == 1) {
         int32_t i=0;
-        for (i = 0; i < db->n_bam_recs; i++) {
+        for (i = 0; i < db->n_rec; i++) {
             func(core,db,i);
         }
 

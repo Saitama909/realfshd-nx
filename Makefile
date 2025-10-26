@@ -1,63 +1,78 @@
-# Compiler
-CC = gcc
-
-# Compiler flags
-CPPFLAGS += -Ihtslib/ -Iinclude/
-CFLAGS = -g -Wall -O2  -std=c99
+CC       = cc
+CPPFLAGS += -I slow5lib/include/
+CFLAGS   += -g -Wall -O2  -std=c99
 LDFLAGS  += $(LIBS) -lz -lm -lpthread
-
-# Source files
-SRCS = src/error.c src/main.c src/misc_p.c src/misc.c src/mod.c src/thread.c src/minimod.c src/ref.c src/server.c
-
-# Object files directory
 BUILD_DIR = build
 
-# Object files
-OBJS = $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
+ifeq ($(zstd),1)
+LDFLAGS		+= -lzstd
+endif
 
-# Executable name
-BINARY = realfreq
+# change the tool name to what you want
+BINARY = fshdtools
 
-# Phony targets
-.PHONY: all clean
+OBJ = $(BUILD_DIR)/main.o \
+      $(BUILD_DIR)/fshd.o \
+      $(BUILD_DIR)/long_main.o \
+      $(BUILD_DIR)/thread.o \
+	  $(BUILD_DIR)/misc.o \
+	  $(BUILD_DIR)/error.o \
+# add more objects here if needed
 
-# Default target
-all: $(BINARY)
+VERSION = `git describe --tags`
 
-# Address sanitizer
+# make asan=1 enables address sanitiser
 ifdef asan
 	CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
 
-# Compile source files into object files
-$(BUILD_DIR)/%.o: src/%.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+# make accel=1 enables the acceelerator (CUDA,OpenCL,FPGA etc if implemented)
+ifdef acc
+    CPPFLAGS += -DHAVE_ACC=1
+endif
 
-# Link object files into the executable
-$(BINARY): $(OBJS) htslib/libhts.a
-	$(CC) $(CFLAGS) $(OBJS) htslib/libhts.a $(LDFLAGS) -o $@
+.PHONY: clean distclean test
 
-# Check if htslib is installed
-htslib/libhts.a:
-	@if test -e $(BUILD_DIR)/lib/libhts.a; then \
-		echo "htslib found at htslib/libhts.a"; \
-	else \
-		echo "htslib not found at htslib/libhts.a"; \
-		echo "Please run 'scripts/install-hts.sh' first"; \
-		exit 1; \
-	fi
+$(BINARY): $(OBJ) slow5lib/lib/libslow5.a
+	$(CC) $(CFLAGS) $(OBJ) slow5lib/lib/libslow5.a $(LDFLAGS) -o $@
 
-# Clean up intermediate and executable files
+$(BUILD_DIR)/main.o: src/main.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/fshd.o: src/fshd.c src/misc.h src/error.h src/fshd.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/long_main.o: src/long_main.c src/error.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/thread.o: src/thread.c src/fshd.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/misc.o: src/misc.c src/misc.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/error.o: src/error.c src/error.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+# follow the main.o above and add more objects here if needed
+
+slow5lib/lib/libslow5.a:
+	$(MAKE) -C slow5lib zstd=$(zstd) no_simd=$(no_simd) zstd_local=$(zstd_local) lib/libslow5.a
+
 clean:
-	rm -f $(OBJS) $(BINARY)
+	rm -rf $(BINARY) $(BUILD_DIR)/*.o
+	make -C slow5lib clean
 
-# Run tests
+# Delete all gitignored files (but not directories)
+distclean: clean
+	git clean -f -X
+	rm -rf $(BUILD_DIR)/* autom4te.cache
+
+# make test with run a simple test
 test: $(BINARY)
 	./test/test.sh
 
-memtest: $(BINARY)
-	./test/test.sh mem
-
-# Create build directory if it doesn't exist
-$(shell mkdir -p $(BUILD_DIR))
+# make mem with run a simple memory test using valgrind
+mem: $(BINARY)
+	./test/mem.sh mem
