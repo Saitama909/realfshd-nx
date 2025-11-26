@@ -106,12 +106,27 @@ else
 fi
 
 # Run winnowmap alignment
-echo "WINNOWMAP"
-winnowmap -W ${REPETITIVE_REGIONS} -Y -y -ax $MODE "$REF" "$INPUT_FASTQ" | \
-        samtools view -L "$REGION_BED" -Sb | \
-        samtools sort -o "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
+# echo "WINNOWMAP"
+# winnowmap -W ${REPETITIVE_REGIONS} -Y -y -ax $MODE "$REF" "$INPUT_FASTQ" | \
+#         samtools view -L "$REGION_BED" -Sb | \
+#         samtools sort -o "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
 
-samtools index "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
+# samtools index "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
+
+echo "minimap winnowmap"
+minimap2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} "${OUTDIR}/${PREFIX}_chm13.bam" 
+samtools index "${OUTDIR}/${PREFIX}_chm13.bam"
+
+# Get myopathy panel
+MYOP_PANEL=/g/data/kr68/bed/myopathy_panel_draft_2.gene_targets.chm13.bed
+samtools view -L "$MYOP_PANEL" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
+    samtools sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
+samtools index "${OUTDIR}/${PREFIX}_myop_panel.bam"
+
+# Get d4z4 reads
+samtools view -L "$REGION_BED" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
+    samtools sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+samtools index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
 
 # Generate FASTA from uBAM
 echo "Generating FASTA from uBAM"
