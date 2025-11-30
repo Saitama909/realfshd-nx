@@ -50,7 +50,7 @@ while read -r header; do
 
     rm "${TEMP_BAM}/${read_id}.bam"
     rm "${TEMP_BAM}/${read_id}_short.bam"
-    
+
     rm ${TMP_READ_FA}
 done < <(grep '^>' "$READS")
 
@@ -63,7 +63,7 @@ bedtools bamtobed -i "${OUTDIR}/${PREFIX}_mapped_features.bam" > "${OUTDIR}/${PR
 # convert bam -> sam -> psl
 samtools view -h "${OUTDIR}/${PREFIX}_mapped_features.bam" > "${OUTDIR}/${PREFIX}_mapped_features.merged.sam"
 
-python3 /g/data/kr68/neysa/fshd_pipeline/helper/sam2psl.py \
+python3 ${REALPATH}/helper/sam2psl.py \
     -i "${OUTDIR}/${PREFIX}_mapped_features.merged.sam" \
     -o "${OUTDIR}/${PREFIX}_mapped_features.merged.psl"
 
@@ -72,11 +72,11 @@ cat "${OUTDIR}/${PREFIX}_mapped_features.merged.psl" > "${OUTDIR}/${PREFIX}_mapp
 # USE BLAT FOR PLAM DUE TO SIZE LIMITATION
 blat -stepSize=5 -repMatch=2253 -minScore=20 -minIdentity=0 "$READS" "${PLAM_FASTA}" "${OUTDIR}/${PREFIX}_pLAM_matches.psl"
 
-awk 'BEGIN{FS=OFS="\t"} 
-     $1 ~ /^[0-9]+$/ { 
-        split($19,a,","); 
-        completeness = $1 / $11 * 100; 
-        if (completeness >= 50) print 
+awk 'BEGIN{FS=OFS="\t"}
+     $1 ~ /^[0-9]+$/ {
+        split($19,a,",");
+        completeness = $1 / $11 * 100;
+        if (completeness >= 50) print
      }' "${OUTDIR}/${PREFIX}_pLAM_matches.psl" \
 > "${OUTDIR}/${PREFIX}_pLAM_matches_filtered.psl"
 

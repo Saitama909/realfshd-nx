@@ -108,11 +108,11 @@ fi
 
 echo "minimap winnowmap"
 minimap2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
-    samtools sort -o "${OUTDIR}/${PREFIX}_chm13.bam" 
+    samtools sort -o "${OUTDIR}/${PREFIX}_chm13.bam"
 samtools index "${OUTDIR}/${PREFIX}_chm13.bam"
 
 # Get myopathy panel
-MYOP_PANEL=/g/data/kr68/bed/myopathy_panel_draft_2.gene_targets.chm13.bed
+MYOP_PANEL=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
 samtools view -L "$MYOP_PANEL" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
     samtools sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
 samtools index "${OUTDIR}/${PREFIX}_myop_panel.bam"
