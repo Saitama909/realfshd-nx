@@ -3,6 +3,9 @@
 OUTDIR=$1
 PREFIX=$2
 READS=$3
+FEATURES_FASTA=$4
+SHORT_FASTA=$5
+PLAM_FASTA=$6
 
 REALPATH=$(dirname "$(readlink -f "$0")")
 
