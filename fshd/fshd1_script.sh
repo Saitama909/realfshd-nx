@@ -26,6 +26,7 @@ OUTDIR="$PREFIX"
 HAPLOTYPE_REFS=${REALPATH}/inputs/d4z4_repeats.fasta  # Fasta file containing haplotype-specific references
 MMI="${REALPATH}/inputs/hs1.mmi"
 REMOVE_INTERMEDIATE_FILES=false
+FSHD1_STATUS="${REALPATH}/inputs/fshd1_status_template.tsv"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -272,6 +273,7 @@ python3 $REALPATH/helper/methylation_summary.py \
     --meth "${OUTDIR}/${PREFIX}_meth_reads.bed" \
     --output "${OUTDIR}/${PREFIX}_methylation_summary.tsv" \
     --fshd1_read_status_tsv $fshd1_read_status_tsv \
+    --status_template_tsv $FSHD1_STATUS \
     --updated_bed "${OUTDIR}/${PREFIX}_updated_features.bed"
 
 mv "${OUTDIR}/${PREFIX}_methylation_summary.tsv" "${OUTDIR}/${PREFIX}_mapped_features_summary.tsv"
