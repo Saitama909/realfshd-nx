@@ -128,11 +128,11 @@ do
     t2=$(date)
     echo -e "$P5_FILEPATH\tp2s\t${t1}\t${t2}" >> ${TIME_LOG}
 
-    ${FSHDTOOLS} ${SLOW5_FILEPATH} -o ${SLOW5_LONG_FILEPATH} >> $LOG_FILEPATH 2>&1 || failed "fshdtools failed. check $LOG_FILEPATH" $P5_FILEPATH
+    ${FSHDTOOLS} long ${SLOW5_FILEPATH} -o ${SLOW5_LONG_FILEPATH} >> $LOG_FILEPATH 2>&1 || failed "fshdtools failed. check $LOG_FILEPATH" $P5_FILEPATH
     t3=$(date)
     echo -e "$P5_FILEPATH\tlong\t${t2}\t${t3}" >> ${TIME_LOG}
 
-    ${SLOW5_DORADO} basecaller --modified-bases 5mCG_5hmCG -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL} ${SLOW5_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
+    ${SLOW5_DORADO} basecaller --modified-bases 5mCG_5hmCG -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL} ${SLOW5_LONG_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
     #${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
     t4=$(date)
     echo -e "$P5_FILEPATH\tbasemethcall\t${t3}\t${t4}" >> ${TIME_LOG}

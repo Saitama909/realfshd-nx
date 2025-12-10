@@ -3,16 +3,13 @@
 OUTDIR=$1
 PREFIX=$2
 READS=$3
+FEATURES_FASTA=$4
+SHORT_FASTA=$5
+PLAM_FASTA=$6
 
 REALPATH=$(dirname "$(readlink -f "$0")")
 
-FEATURES_FASTA=${REALPATH}/inputs/features.fasta
-PLAM_FASTA=${REALPATH}/inputs/short_features.fasta
-SEQ_4QB=${REALPATH}/inputs/4qB_marker.fa
-
-# module load minimap2/2.22
-# module load samtools/1.19
-# module load bedtools/2.28.0
+PSLTOBED=pslToBed
 
 TEMP_BAM=$OUTDIR/tmp_bams
 mkdir -p "$TEMP_BAM"
@@ -38,7 +35,6 @@ while read -r header; do
 
     # Extract the single read into a temporary FASTA
     TMP_READ_FA="${OUTDIR}/tmp_read_${read_id}.fa"
-    # awk -v h="$header" 'BEGIN {p=0} $0==h {p=1; print; next} /^>/ {p=0} p {print}' "$READS" > ${TMP_FA}
     awk -v h="$header" 'BEGIN {p=0} $0==h {p=1; print; next} /^>/ {p=0} p {print}' "$TMP_FA" > ${TMP_READ_FA}
 
     # Run minimap2 using the read as the reference
@@ -46,35 +42,29 @@ while read -r header; do
         samtools view -bS - | \
         samtools sort -o "${TEMP_BAM}/${read_id}.bam"
 
-    minimap2 -x asm5 -t 1 -a ${TMP_READ_FA} "$SEQ_4QB" | \
-        samtools view -bS - | \
-        samtools sort -o "${TEMP_BAM}/${read_id}_4qB.bam"
-
-    # Run minimap2 short for pLAM
-    minimap2 -x sr -t 1 -N 10 -a ${TMP_READ_FA} "$PLAM_FASTA" | \
+    # Run minimap2 short for p13-E11
+    minimap2 -x sr -t 1 -N 10 -a ${TMP_READ_FA} "$SHORT_FASTA" | \
         samtools view -bS - | \
         samtools sort -o "${TEMP_BAM}/${read_id}_short.bam"
 
     samtools merge -f "${TEMP_BAM}/${read_id}_merged.bam" \
         "${TEMP_BAM}/${read_id}.bam" \
-        "${TEMP_BAM}/${read_id}_4qB.bam" \
         "${TEMP_BAM}/${read_id}_short.bam"
 
     rm "${TEMP_BAM}/${read_id}.bam"
-    rm "${TEMP_BAM}/${read_id}_4qB.bam"
     rm "${TEMP_BAM}/${read_id}_short.bam"
 
     rm ${TMP_READ_FA}
 done < <(grep '^>' "$READS")
 
 # Merge all into a single BAM
-samtools merge -f "${OUTDIR}/${PREFIX}_mapped_features.merged.bam" ${TEMP_BAM}/*.bam
-samtools index "${OUTDIR}/${PREFIX}_mapped_features.merged.bam"
+samtools merge -f "${OUTDIR}/${PREFIX}_mapped_features.bam" ${TEMP_BAM}/*.bam
+samtools index "${OUTDIR}/${PREFIX}_mapped_features.bam"
 
-bedtools bamtobed -i "${OUTDIR}/${PREFIX}_mapped_features.merged.bam" > "${OUTDIR}/${PREFIX}_mapped_features.merged.bed"
+bedtools bamtobed -i "${OUTDIR}/${PREFIX}_mapped_features.bam" > "${OUTDIR}/${PREFIX}_mapped_features.bed"
 
 # convert bam -> sam -> psl
-samtools view -h "${OUTDIR}/${PREFIX}_mapped_features.merged.bam" > "${OUTDIR}/${PREFIX}_mapped_features.merged.sam"
+samtools view -h "${OUTDIR}/${PREFIX}_mapped_features.bam" > "${OUTDIR}/${PREFIX}_mapped_features.merged.sam"
 
 python3 ${REALPATH}/helper/sam2psl.py \
     -i "${OUTDIR}/${PREFIX}_mapped_features.merged.sam" \
@@ -82,6 +72,29 @@ python3 ${REALPATH}/helper/sam2psl.py \
 
 cat "${OUTDIR}/${PREFIX}_mapped_features.merged.psl" > "${OUTDIR}/${PREFIX}_mapped_features.psl"
 
+# USE BLAT FOR PLAM DUE TO SIZE LIMITATION
+blat -stepSize=5 -repMatch=2253 -minScore=20 -minIdentity=0 "$READS" "${PLAM_FASTA}" "${OUTDIR}/${PREFIX}_pLAM_matches.psl"
+
+awk 'BEGIN{FS=OFS="\t"}
+     $1 ~ /^[0-9]+$/ {
+        split($19,a,",");
+        completeness = $1 / $11 * 100;
+        if (completeness >= 50) print
+     }' "${OUTDIR}/${PREFIX}_pLAM_matches.psl" \
+> "${OUTDIR}/${PREFIX}_pLAM_matches_filtered.psl"
+
+# Add to mapped features psl
+cat "${OUTDIR}/${PREFIX}_pLAM_matches_filtered.psl" >> "${OUTDIR}/${PREFIX}_mapped_features.psl"
+
+# Convert psl to bed
+${PSLTOBED} "${OUTDIR}/${PREFIX}_pLAM_matches_filtered.psl" "${OUTDIR}/${PREFIX}_pLAM_matches.bed"
+
+# merge with the rest of the features
+cat "${OUTDIR}/${PREFIX}_pLAM_matches.bed" >> "${OUTDIR}/${PREFIX}_mapped_features.bed"
+
 # Optional: clean up
 rm $TMP_FA
 rm -r $TEMP_BAM
+rm ${OUTDIR}/${PREFIX}_pLAM_matches*
+rm "${OUTDIR}/${PREFIX}_mapped_features.merged.psl"
+rm "${OUTDIR}/${PREFIX}_mapped_features.merged.sam"
