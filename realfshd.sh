@@ -2,9 +2,9 @@
 
 REALPATH=$(dirname "$(readlink -f "$0")")
 
-export BLUECRAB=/install/blue-crab-0.3.0/scripts/blue-crab
-export SLOW5_DORADO=/install/slow5-dorado-0.8.3/bin/slow5-dorado
-export DORADO_MODEL_PATH=/install/dorado-0.8.3/models/
+export BLUECRAB=${REALPATH}/fshd/install/blue-crab-v0.4.0/blue-crab
+export SLOW5_DORADO=${REALPATH}/fshd/install/slow5-dorado-0.8.3/bin/slow5-dorado
+export DORADO_MODEL_PATH=${REALPATH}/fshd/install/slow5-dorado-0.8.3/models/
 export DORADO_MODEL=dna_r10.4.1_e8.2_400bps_sup@v5.0.0
 export FSHD_PIPELINE_WRAPPER=${REALPATH}/fshd/fshd_pipeline_wrapper.sh
 export FSHDTOOLS=${REALPATH}/fshdtools
