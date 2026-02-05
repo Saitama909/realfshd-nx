@@ -14,12 +14,13 @@ INPUT_UBAM=""                            # Unaligned BAM
 INPUT_FASTQ=""
 # REF_DIR=$(dirname "$REF")
 REALPATH=/data/hasindu/realfshd/fshd #$(dirname "$(readlink -f "$0")")
+REALPATH_N=/data/neynjo24/realfshd/fshd
 REF=$REALPATH/genome/hs1.fa           # Reference genome
 echo $REALPATH
 REGION_BED=${REALPATH}/inputs/d4z4_region.chm13.bed
 FEATURES_FASTA=${REALPATH}/inputs/features.fasta
 SHORT_FEATURES=${REALPATH}/inputs/short_features.fasta
-PLAM=${REALPATH}/inputs/pLAM.fasta
+PLAM=${REALPATH_N}/inputs/pLAM.fasta
 PROBES=${REALPATH}/inputs/probes.fasta
 PREFIX="SAMPLE"
 OUTDIR="$PREFIX"
@@ -31,7 +32,7 @@ FSHD1_STATUS="${REALPATH}/inputs/fshd1_status_template.tsv"
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --prefix) PREFIX="$2"; OUTDIR="$PREFIX"; shift 2;;
+        --prefix) PREFIX="$2"; shift 2;;
         --outdir) OUTDIR="$2"; shift 2;;
         --input-ubam) INPUT_UBAM="$2"; shift 2;;
 	    --input-fastq) INPUT_FASTQ="$2"; shift 2;;
@@ -110,22 +111,29 @@ if [ ! -f "$REPETITIVE_REGIONS" ]; then
 else
     echo "Repetitive regions file already exists at $REPETITIVE_REGIONS. Skipping this step."
 fi
-
-echo "minimap winnowmap"
-$MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
-    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_chm13.bam"
-$SAMTOOLS index "${OUTDIR}/${PREFIX}_chm13.bam"
-
-# Get myopathy panel
+echo "$(realpath $OUTDIR)"
+echo "$PREFIX"
+# Get myopathy panel from fast basecall chm13 mapping
+echo "Extracting myopathy panel from fast basecall chm13 mapping"
 MYOP_PANEL=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
 $SAMTOOLS view -L "$MYOP_PANEL" -Sb "${OUTDIR}/${PREFIX}_fast_chm13.bam" | \
     $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
 $SAMTOOLS index "${OUTDIR}/${PREFIX}_myop_panel.bam"
 
+echo "minimap winnowmap"
+$MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
+    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_chm13.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_chm13.bam"
 # Get d4z4 reads
 $SAMTOOLS view -L "$REGION_BED" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
     $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
 $SAMTOOLS index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+
+## NEW edit
+# $MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
+#     $SAMTOOLS view -L "$REGION_BED" -Sb - | \
+#     $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+# $SAMTOOLS index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
 
 # Remap with winnowmap to CHM13
 $SAMTOOLS view -N <($SAMTOOLS view "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam" | cut -f1 | sort | uniq) -b ${INPUT_UBAM} | \
