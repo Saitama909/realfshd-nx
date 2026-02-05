@@ -48,7 +48,7 @@ shift $((OPTIND-1))
 # [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
 [ -z ${FSHD_PRE} ] && export FSHD_PRE=pre_mapping_n_rebasecall.sh
 [ -z ${FSHD_PIPELINE_WRAPPER} ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
-[ -z ${FSHD_POST} ] && export FSHD_POST=fshd_post_mapping.sh
+[ -z ${FSHD_POST} ] && export FSHD_POST=fshd_post_merge.sh
 [ -z ${FSHDTOOLS} ] && export FSHD_TOOLS=fshdtools
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
