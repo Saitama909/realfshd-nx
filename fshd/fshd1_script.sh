@@ -13,14 +13,13 @@ set -e # <-- abort on any error
 INPUT_UBAM=""                            # Unaligned BAM
 INPUT_FASTQ=""
 # REF_DIR=$(dirname "$REF")
-REALPATH=/data/hasindu/realfshd/fshd #$(dirname "$(readlink -f "$0")")
-REALPATH_N=/data/neynjo24/realfshd/fshd
+REALPATH=$(dirname "$(readlink -f "$0")")
 REF=$REALPATH/genome/hs1.fa           # Reference genome
 echo $REALPATH
 REGION_BED=${REALPATH}/inputs/d4z4_region.chm13.bed
 FEATURES_FASTA=${REALPATH}/inputs/features.fasta
 SHORT_FEATURES=${REALPATH}/inputs/short_features.fasta
-PLAM=${REALPATH_N}/inputs/pLAM.fasta
+PLAM=${REALPATH}/inputs/pLAM.fasta
 PROBES=${REALPATH}/inputs/probes.fasta
 PREFIX="SAMPLE"
 OUTDIR="$PREFIX"
@@ -59,8 +58,8 @@ PSLTOBED=pslToBed
 BG2BW=bedGraphToBigWig
 
 # Paths to tools
-SAMTOOLS=/install/samtools-1.18/samtools
-MINIMAP2=/install/minimap2-2.26/minimap2
+SAMTOOLS=samtools
+MINIMAP2=minimap2
 
 # Parameters
 MAPQ=30
