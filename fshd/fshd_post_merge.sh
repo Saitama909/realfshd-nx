@@ -8,6 +8,7 @@
 # 4. run realtime_stop.sh
 OUTDIR=$1
 PAR_DIR=$(dirname $OUTDIR)
+SAMPLE_NAME=SAMPLE
 MERGED_MYOP_BAM="${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam"
 CHUNK_MYOP_BAM="${OUTDIR}/${SAMPLE_NAME}_myop_panel.bam"
 
