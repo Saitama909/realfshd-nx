@@ -40,7 +40,6 @@ else
 fi
 
 # FSHD1 status generation
-source ${REALPATH}/venv3/bin/activate
 python3 -c "
 from helper.methylation_summary import extract_fshd1_status
 import pandas as pd
@@ -54,7 +53,7 @@ time ${REALPATH}/realtime_stop.sh \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam" > "${logs}/${SAMPLE_NAME}_${chunk}_fshd_realtime_stop.log" 2>&1
 
 # Copy all merged to merged_{counter} directory for record keeping
-OUTDIR_COUNTER="${PAR_DIR}/merged_${counter}"
+OUTDIR_COUNTER="${OUTDIR}/merged"
 mkdir -p "${OUTDIR_COUNTER}"
 cp ${PAR_DIR}/merged/* ${OUTDIR_COUNTER}/.
 
