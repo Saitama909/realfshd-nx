@@ -40,6 +40,7 @@ else
 fi
 
 # FSHD1 status generation
+source ${REALPATH}/venv3/bin/activate
 python3 -c "
 from helper.methylation_summary import extract_fshd1_status
 import pandas as pd
