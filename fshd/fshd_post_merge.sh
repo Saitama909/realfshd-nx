@@ -6,6 +6,7 @@
 # 2. merge feature summary
 # 3. run fshd1 status generation
 # 4. run realtime_stop.sh
+OUTDIR=$1
 PAR_DIR=$(dirname $OUTDIR)
 MERGED_MYOP_BAM="${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam"
 CHUNK_MYOP_BAM="${OUTDIR}/${SAMPLE_NAME}_myop_panel.bam"
@@ -42,10 +43,10 @@ python3 -c "
 from helper.methylation_summary import extract_fshd1_status
 import pandas as pd
 summary_df = pd.read_csv('${MERGED_FEATURES_SUMMARY_TSV}', sep='\t')
-extract_fshd1_status(summary_df, '${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_counts.tsv', '/data/neynjo24/realfshd/fshd/inputs/fshd1_status_template.tsv')
+extract_fshd1_status(summary_df, '${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_counts.tsv', '${REALPATH}/inputs/fshd1_status_template.tsv')
 "
 
-time /data/neynjo24/realfshd/fshd/realtime_stop.sh \
+time ${REALPATH}/realtime_stop.sh \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_counts.tsv" \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_mapped_features_summary.tsv" \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam" > "${logs}/${SAMPLE_NAME}_${chunk}_fshd_realtime_stop.log" 2>&1
