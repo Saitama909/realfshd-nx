@@ -13,6 +13,8 @@ CHUNK_MYOP_BAM="${OUTDIR}/${SAMPLE_NAME}_myop_panel.bam"
 MERGED_FEATURES_SUMMARY_TSV="${PAR_DIR}/merged/${SAMPLE_NAME}_mapped_features_summary.tsv"
 CHUNK_FEATURES_SUMMARY_TSV="${OUTDIR}/${SAMPLE_NAME}_mapped_features_summary.tsv"
 
+REALPATH=$(dirname "$(readlink -f "$0")")
+
 echo "Merging myopathy panel BAM to: ${MERGED_MYOP_BAM}"
 echo "Merging features summary to: ${MERGED_FEATURES_SUMMARY_TSV}"
 
