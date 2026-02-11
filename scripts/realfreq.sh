@@ -323,7 +323,7 @@ if ! $realtime; then # If non-realtime option set
     test -e $TMP_FILE_PATH && rm $TMP_FILE_PATH
 
     #find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
-    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
+    find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}" | sort -V | "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC
 
 else # Else assume realtime analysis is desired
 
