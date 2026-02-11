@@ -144,7 +144,7 @@ do
     t5=$(date)
     echo -e "$P5_FILEPATH\tpre\t${t4}\t${t5}" >> ${TIME_LOG}
 
-    ${FSHD_PIPELINE_WRAPPER} $UNALN_SAM_FILEPATH ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
+    ${FSHD_PIPELINE_WRAPPER} $REBASECALLED_UBAM ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
     t6=$(date)
     echo -e "$P5_FILEPATH\tfshd\t${t5}\t${t6}" >> ${TIME_LOG}
 

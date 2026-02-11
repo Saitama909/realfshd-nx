@@ -40,8 +40,9 @@ else
 fi
 
 # FSHD1 status generation
+source ${REALPATH}/venv3/bin/activate
 PYTHONPATH="${REALPATH}/helper" python3 -c "
-from helper.methylation_summary import extract_fshd1_status
+from methylation_summary import extract_fshd1_status
 import pandas as pd
 summary_df = pd.read_csv('${MERGED_FEATURES_SUMMARY_TSV}', sep='\t')
 extract_fshd1_status(summary_df, '${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_counts.tsv', '${REALPATH}/inputs/fshd1_status_template.tsv')
