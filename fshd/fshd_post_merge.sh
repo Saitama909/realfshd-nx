@@ -51,7 +51,7 @@ extract_fshd1_status(summary_df, '${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_
 time ${REALPATH}/realtime_stop.sh \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_fshd1_status_counts.tsv" \
     "${PAR_DIR}/merged/${SAMPLE_NAME}_mapped_features_summary.tsv" \
-    "${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam" > "${logs}/${SAMPLE_NAME}_${chunk}_fshd_realtime_stop.log" 2>&1
+    "${PAR_DIR}/merged/${SAMPLE_NAME}_myop_panel.bam"
 
 # Copy all merged to merged_{counter} directory for record keeping
 OUTDIR_COUNTER="${OUTDIR}/merged"
