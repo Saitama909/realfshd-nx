@@ -40,7 +40,7 @@ else
 fi
 
 # FSHD1 status generation
-python3 -c "
+PYTHONPATH="${REALPATH}/helper" python3 -c "
 from helper.methylation_summary import extract_fshd1_status
 import pandas as pd
 summary_df = pd.read_csv('${MERGED_FEATURES_SUMMARY_TSV}', sep='\t')
