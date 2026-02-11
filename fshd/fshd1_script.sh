@@ -31,7 +31,7 @@ FSHD1_STATUS="${REALPATH}/inputs/fshd1_status_template.tsv"
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --prefix) PREFIX="$2"; OUTDIR="$PREFIX"; shift 2;;
+        --prefix) PREFIX="$2"; shift 2;;
         --outdir) OUTDIR="$2"; shift 2;;
         --input-ubam) INPUT_UBAM="$2"; shift 2;;
 	    --input-fastq) INPUT_FASTQ="$2"; shift 2;;
@@ -57,6 +57,10 @@ fi
 PSLTOBED=pslToBed
 BG2BW=bedGraphToBigWig
 
+# Paths to tools
+SAMTOOLS=samtools
+MINIMAP2=minimap2
+
 # Parameters
 MAPQ=30
 MIN_READ_LENGTH=30000
@@ -75,13 +79,13 @@ if [[  ( ! -z "$INPUT_UBAM" ) && ( -f "$INPUT_UBAM") ]]; then
     ubam_exist=true
     # INPUT_FASTQ=basename "$INPUT_UBAM" .bam
     UBAM_BASE=$(basename $INPUT_UBAM)
-    samtools fastq -TMM,ML "$INPUT_UBAM" > "${OUTDIR}/${UBAM_BASE%.bam}.fastq"
+    $SAMTOOLS fastq -TMM,ML "$INPUT_UBAM" > "${OUTDIR}/${UBAM_BASE%.bam}.fastq"
     # samtools fastq -TMM,ML "$INPUT_UBAM" > "${INPUT_UBAM%.bam}.fastq"
     INPUT_FASTQ="${OUTDIR}/${UBAM_BASE%.bam}.fastq"
 elif [[  ( ! -z "$INPUT_FASTQ" ) && ( -f "$INPUT_FASTQ") ]]; then
     fastq_exist=true
     FASTQ_BASE=$(basename $INPUT_FASTQ)
-    samtools import -u -s "$INPUT_FASTQ" -o "${OUTDIR}/${FASTQ_BASE%.fastq}.bam"
+    $SAMTOOLS import -u -s "$INPUT_FASTQ" -o "${OUTDIR}/${FASTQ_BASE%.fastq}.bam"
     INPUT_UBAM="${OUTDIR}/${FASTQ_BASE%.fastq}.bam"
 fi
 
@@ -106,35 +110,42 @@ if [ ! -f "$REPETITIVE_REGIONS" ]; then
 else
     echo "Repetitive regions file already exists at $REPETITIVE_REGIONS. Skipping this step."
 fi
+echo "$(realpath $OUTDIR)"
+echo "$PREFIX"
+# Get myopathy panel from fast basecall chm13 mapping
+echo "Extracting myopathy panel from fast basecall chm13 mapping"
+MYOP_PANEL=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
+$SAMTOOLS view -L "$MYOP_PANEL" -Sb "${INPUT_UBAM}" | \
+    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_myop_panel.bam"
 
 echo "minimap winnowmap"
-minimap2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
-    samtools sort -o "${OUTDIR}/${PREFIX}_chm13.bam"
-samtools index "${OUTDIR}/${PREFIX}_chm13.bam"
-
-# Get myopathy panel
-MYOP_PANEL=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
-samtools view -L "$MYOP_PANEL" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
-    samtools sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
-samtools index "${OUTDIR}/${PREFIX}_myop_panel.bam"
-
+$MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
+    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_chm13.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_chm13.bam"
 # Get d4z4 reads
-samtools view -L "$REGION_BED" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
-    samtools sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
-samtools index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+$SAMTOOLS view -L "$REGION_BED" -Sb "${OUTDIR}/${PREFIX}_chm13.bam" | \
+    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+
+## NEW edit
+# $MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
+#     $SAMTOOLS view -L "$REGION_BED" -Sb - | \
+#     $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
+# $SAMTOOLS index "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam"
 
 # Remap with winnowmap to CHM13
-samtools view -N <(samtools view "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam" | cut -f1 | sort | uniq) -b ${INPUT_UBAM} | \
-    samtools fastq -TMM,ML - | \
+$SAMTOOLS view -N <($SAMTOOLS view "${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam" | cut -f1 | sort | uniq) -b ${INPUT_UBAM} | \
+    $SAMTOOLS fastq -TMM,ML - | \
     winnowmap -W ${REPETITIVE_REGIONS} -Y -y -ax $MODE "$REF" - -t ${PBS_NCPUS:-8} | \
-    samtools view -L "$REGION_BED" -Sb | \
-    samtools sort -o "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
+    $SAMTOOLS view -L "$REGION_BED" -Sb | \
+    $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
 
-samtools index "${OUTDIR}/${PREFIX}_reads_of_interest.bam"
 # Generate FASTA from uBAM
 echo "Generating FASTA from uBAM"
-samtools view -N <(samtools view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | cut -f1 | sort | uniq) -b "$INPUT_UBAM" | \
-	samtools fasta > "${OUTDIR}/${PREFIX}_reads_of_interest.fasta"
+$SAMTOOLS view -N <($SAMTOOLS view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | cut -f1 | sort | uniq) -b "$INPUT_UBAM" | \
+	$SAMTOOLS fasta > "${OUTDIR}/${PREFIX}_reads_of_interest.fasta"
 
 # Convert BAM to BED
 echo "Converting BAM to BED"
@@ -172,8 +183,8 @@ for chrom in chr4 chr10; do
 
     # Align reads to the haplotype-specific reference
     aligned_bam="${OUTDIR}/${PREFIX}_${haplotype}_aligned.bam"
-    minimap2 --secondary=no --MD -ax map-ont "$haplotype_ref" "$haplotype_reads" | samtools sort -o "$aligned_bam"
-    samtools index "$aligned_bam"
+    $MINIMAP2 --secondary=no --MD -ax map-ont "$haplotype_ref" "$haplotype_reads" | $SAMTOOLS sort -o "$aligned_bam"
+    $SAMTOOLS index "$aligned_bam"
 
     # Add the BAM file to the array
     aligned_bams+=("$aligned_bam")
@@ -188,8 +199,8 @@ echo "Merging haplotype-aligned BAM files"
 merged_bam="${OUTDIR}/${PREFIX}_aligned_haplotypes.bam"
 
 # Use samtools to merge all BAM files from the array
-samtools merge -f "$merged_bam" "${aligned_bams[@]}"
-samtools index "$merged_bam"
+$SAMTOOLS merge -f "$merged_bam" "${aligned_bams[@]}"
+$SAMTOOLS index "$merged_bam"
 
 # Remove individual haplotype BAM files and their indexes
 rm "${aligned_bams[@]}" "${aligned_bams[@]/%.bam/.bam.bai}"
@@ -218,7 +229,7 @@ python3 "$alignment_script" \
     --main_tsv "${OUTDIR}/${PREFIX}_mapped_features_summary.tsv" \
     --repeats_bed "${OUTDIR}/${PREFIX}_d4z4_repeats.bed"
 
-samtools view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | awk '{
+$SAMTOOLS view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | awk '{
     primary_chr = $3
     for (i=12; i<=NF; i++) {
         if ($i ~ /^SA:Z:/) {
@@ -255,13 +266,13 @@ python3 $REALPATH/helper/add_colors_to_bed.py \
 # reannotate distal haplotype when identified as the 4qA long haplotype (DUX4L)
 ${REALPATH}/distal_haplotype_blast.sh "${OUTDIR}" "${PREFIX}"
 
-samtools view -N <(samtools view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | cut -f1 | sort | uniq) -b ${INPUT_UBAM} | \
-    samtools fastq -TMM,ML - | minimap2 -t ${THREADS} -Y -y -x asm5 -a --secondary=no "${OUTDIR}/${PREFIX}_reads_of_interest.fasta" - | \
-    samtools view -F 2308 -b - | \
-    samtools sort -@ ${THREADS} - > "${OUTDIR}/${PREFIX}_meth_reads.bam"
+$SAMTOOLS view -N <($SAMTOOLS view "${OUTDIR}/${PREFIX}_reads_of_interest.bam" | cut -f1 | sort | uniq) -b ${INPUT_UBAM} | \
+    $SAMTOOLS fastq -TMM,ML - | $MINIMAP2 -t ${THREADS} -Y -y -x asm5 -a --secondary=no "${OUTDIR}/${PREFIX}_reads_of_interest.fasta" - | \
+    $SAMTOOLS view -F 2308 -b - | \
+    $SAMTOOLS sort -@ ${THREADS} - > "${OUTDIR}/${PREFIX}_meth_reads.bam"
 
 # Index the resulting BAM file
-samtools index "${OUTDIR}/${PREFIX}_meth_reads.bam"
+$SAMTOOLS index "${OUTDIR}/${PREFIX}_meth_reads.bam"
 
 # use minimod to get meth probabilities for each CpG within a given read
 minimod view -c m "${OUTDIR}/${PREFIX}_reads_of_interest.fasta" "${OUTDIR}/${PREFIX}_meth_reads.bam" | awk 'NR > 1 {print $4"\t"$5"\t"$5+1"\t.\t"$7}' > "${OUTDIR}/${PREFIX}_meth_reads.bed"
@@ -285,7 +296,7 @@ if [ ! -f "${OUTDIR}/${PREFIX}_reads_of_interest.chrom.sizes" ]; then
 
     # Generate .fai index for the reference if it doesn't exist
     if [ ! -f "${OUTDIR}/${PREFIX}_reads_of_interest.fasta.fai" ]; then
-        samtools faidx "${OUTDIR}/${PREFIX}_reads_of_interest.fasta"
+        $SAMTOOLS faidx "${OUTDIR}/${PREFIX}_reads_of_interest.fasta"
     fi
 
     # Create genome.chrom.sizes from the .fai index
