@@ -115,7 +115,7 @@ echo "$PREFIX"
 # Get myopathy panel from fast basecall chm13 mapping
 echo "Extracting myopathy panel from fast basecall chm13 mapping"
 MYOP_PANEL=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
-$SAMTOOLS view -L "$MYOP_PANEL" -Sb "${OUTDIR}/${PREFIX}_fast_chm13.bam" | \
+$SAMTOOLS view -L "$MYOP_PANEL" -Sb "${PREFIX}_fast_chm13.bam" | \
     $SAMTOOLS sort -o "${OUTDIR}/${PREFIX}_myop_panel.bam"
 $SAMTOOLS index "${OUTDIR}/${PREFIX}_myop_panel.bam"
 
