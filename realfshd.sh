@@ -13,13 +13,7 @@ export FSHD_POST=${REALPATH}/fshd/fshd_post_merge.sh
 
 export FSHDTOOLS=${REALPATH}/fshdtools
 
-#DATA_DIR=${REALPATH}/test/data/positive/AS2603/realtime/
-#DATA_DIR=${REALPATH}/test/data/QGXXOX250638/
-DATA_DIR=${REALPATH}/test/data/bench_QGXXOX250638/
+export CUDA_VISIBLE_DEVICES=1
 
-rm -f ${DATA_DIR}/*.log
-rm -rf ${DATA_DIR}/*/sam* ${DATA_DIR}/*/*logs ${DATA_DIR}/*/slow5*
-
-${REALPATH}/scripts/realfreq.sh -n -m ${DATA_DIR}
-
+${REALPATH}/scripts/realfreq.sh $*
 
