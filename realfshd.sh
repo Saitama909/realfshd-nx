@@ -15,5 +15,8 @@ export FSHDTOOLS=${REALPATH}/fshdtools
 
 export CUDA_VISIBLE_DEVICES=1
 
+export PATH=$PATH://install/minimap2-2.26/:/install/samtools-1.18/:/install/slow5tools-v1.3.0/
+
+
 ${REALPATH}/scripts/realfreq.sh $*
 

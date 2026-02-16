@@ -336,7 +336,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG -f $FAILED_LIST -p $MAX_PROC 
 
     else
         echo "[$SCRIPT_NAME] running"
@@ -344,7 +344,7 @@ else # Else assume realtime analysis is desired
 
         "$SCRIPT_PATH"/monitor/monitor.sh -x ${MONITOR_EXTENSION} -t $TIME_INACTIVE -f -d ${MONITOR_TEMP} $MONITOR_PARENT_DIR/  |
         "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
+        "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC 
 
     fi
 
@@ -355,7 +355,7 @@ else # Else assume realtime analysis is desired
 
     find $MONITOR_PARENT_DIR/ -name "*.${MONITOR_EXTENSION}"   |
     "$SCRIPT_PATH"/monitor/ensure.sh -x ${MONITOR_EXTENSION} -r -d $TMP_FILE_PATH -l ${MONITOR_TRACE}  |
-    "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC | realfreq_proc
+    "$PIPELINE_SCRIPT" -l $PIPELINE_LOG  -f $FAILED_LIST -p $MAX_PROC 
 
 fi
 
