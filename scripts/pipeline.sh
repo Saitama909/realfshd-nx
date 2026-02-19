@@ -46,7 +46,9 @@ shift $((OPTIND-1))
 [ -z ${SLOW5_DORADO} ] && export SLOW5_DORADO=slow5-dorado
 # [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
 # [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
+[ -z ${FSHD_PRE} ] && export FSHD_PRE=pre_mapping_n_rebasecall.sh
 [ -z ${FSHD_PIPELINE_WRAPPER} ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
+[ -z ${FSHD_POST} ] && export FSHD_POST=fshd_post_merge.sh
 [ -z ${FSHDTOOLS} ] && export FSHD_TOOLS=fshdtools
 
 $SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
@@ -61,7 +63,8 @@ $FSHDTOOLS --version &> /dev/null || die "[pipeline.sh] fshdtools not found. Add
 
 #[ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
 [ -z ${DORADO_MODEL_PATH} ] && die "[pipeline.sh] MODEL_PATH not set. export MODEL_PATH=/path/to/model. Exiting."
-[ -z ${DORADO_MODEL} ] && die "[pipeline.sh] DORADO_MODEL not set. export DORADO_MODEL=dorado_model. Exiting."
+[ -z ${DORADO_MODEL_FAST} ] && die "[pipeline.sh] DORADO_MODEL_FAST not set. export DORADO_MODEL=dorado_model. Exiting."
+[ -z ${DORADO_MODEL_SUP} ] && die "[pipeline.sh] DORADO_MODEL_SUP not set. export DORADO_MODEL=dorado_model. Exiting."
 # [ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
 
 #====================User End - Tool check====================
@@ -116,11 +119,11 @@ do
 
     SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
     SLOW5_LONG_FILEPATH=$SLOW5_DIR/$P5_PREFIX.long.blow5
-    UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unaln.sam
+    UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.fast.unaln.sam
     FASTQ_FILEPATH=$SAM_DIR/$P5_PREFIX.fastq
     FSHD_OUTPATH=$SAM_DIR/$P5_PREFIX.fshd.out
-    UNSORTED_BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.unsorted.bam
-    BAM_FILEPATH=$SAM_DIR/$P5_PREFIX.remora.bam
+    REBASECALLED_UBAM=$SAM_DIR/$P5_PREFIX.sup.unsorted.bam
+
     LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
 
     t1=$(date)
@@ -132,33 +135,26 @@ do
     t3=$(date)
     echo -e "$P5_FILEPATH\tlong\t${t2}\t${t3}" >> ${TIME_LOG}
 
-    ${SLOW5_DORADO} basecaller --modified-bases 5mCG_5hmCG -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL} ${SLOW5_LONG_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
+    ${SLOW5_DORADO} basecaller -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL_FAST} ${SLOW5_LONG_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
     #${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
     t4=$(date)
-    echo -e "$P5_FILEPATH\tbasemethcall\t${t3}\t${t4}" >> ${TIME_LOG}
+    echo -e "$P5_FILEPATH\tfastbasecall\t${t3}\t${t4}" >> ${TIME_LOG}
 
-    # ${SAMTOOLS} fastq -@ 8 -TMM,ML $UNALN_SAM_FILEPATH > $FASTQ_FILEPATH 2>> $LOG_FILEPATH || failed "samtools fastq failed. check $LOG_FILEPATH" $P5_FILEPATH
-
-    ${FSHD_PIPELINE_WRAPPER} $UNALN_SAM_FILEPATH ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
-
+    ${FSHD_PRE} "$UNALN_SAM_FILEPATH" "$SAM_DIR" "${SLOW5_LONG_FILEPATH}" "$REBASECALLED_UBAM" >> ${LOG_FILEPATH} 2>&1 || failed "[pipeline.sh] FSHD pre-mapping and rebasecall step failed. check $LOG_FILEPATH" $P5_FILEPATH
     t5=$(date)
-    echo -e "$P5_FILEPATH\tfshd\t${t4}\t${t5}" >> ${TIME_LOG}
+    echo -e "$P5_FILEPATH\tpre\t${t4}\t${t5}" >> ${TIME_LOG}
 
-    # ${MINIMAP2} -t 8 -ax map-ont -Y -y --secondary=no $REFIDX $FASTQ_FILEPATH > $UNSORTED_BAM_FILEPATH 2>> $LOG_FILEPATH || failed "minimap2 failed. check $LOG_FILEPATH" $P5_FILEPATH
-    # t5=$(date)
-    # echo -e "$P5_FILEPATH\tminimap2\t${t4}\t${t5}" >> ${TIME_LOG}
+    ${FSHD_PIPELINE_WRAPPER} $REBASECALLED_UBAM ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
+    t6=$(date)
+    echo -e "$P5_FILEPATH\tfshd\t${t5}\t${t6}" >> ${TIME_LOG}
 
-    # ${SAMTOOLS} sort -@ 8 -o $BAM_FILEPATH $UNSORTED_BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools sort failed. check $LOG_FILEPATH" $P5_FILEPATH
-    # t6=$(date)
-    # echo -e "$P5_FILEPATH\tsam-sort\t${t5}\t${t6}" >> ${TIME_LOG}
-
-    # ${SAMTOOLS} index -@ 8 $BAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "samtools index failed. check $LOG_FILEPATH" $P5_FILEPATH
-    # t7=$(date)
-    # echo -e "$P5_FILEPATH\tsam-index\t${t6}\t${t7}" >> ${TIME_LOG}
+    ${FSHD_POST} ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD post step failed. Exiting."
+    t7=$(date)
+    echo -e "$P5_FILEPATH\tpost\t${t6}\t${t7}" >> ${TIME_LOG}
 
     echo "[pipeline.sh] Done $P5_FILEPATH"
 
-    PIPELINE_OUTPUT="$BAM_FILEPATH"
+    PIPELINE_OUTPUT="$REBASECALLED_UBAM"
     #=======================User End - Pipeline=======================
 
     echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"

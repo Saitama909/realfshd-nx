@@ -8,7 +8,9 @@
 STATUS_TSV=$1
 SUMMARY_TSV=$2 # "${OUTDIR}/${PREFIX}_mapped_features_summary.tsv"
 MYOP_BAM=$3 # "${OUTDIR}/${PREFIX}_myop_panel.bam"
-MYOP_PANEL_BED=/data/neynjo24/realfshd/fshd/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
+
+REALPATH=$(dirname "$(readlink -f "$0")")
+MYOP_PANEL_BED=${REALPATH}/inputs/myopathy_panel_draft_2.gene_targets.chm13.bed
 SAMPLE_DIR=$(dirname "$STATUS_TSV")
 # MIN_COMPLETE4QA=5
 
@@ -82,7 +84,7 @@ echo "$message"
 # Floor the MappedEstimatedCopies to integer for counting purpose
 # If both lengths have >= NEGATIVE_THRESH, then stop sequencing
 # ---------------------------------------------------------------------------------------------
-grep -q "Complete 4q" $SUMMARY_TSV && awk -F'\t' -v threshold="$NEGATIVE_THRESH" ' 
+grep -q "Complete 4q" $SUMMARY_TSV && awk -F'\t' -v threshold="$NEGATIVE_THRESH" '
 NR==1 {
     for (i=1; i<=NF; i++) {
         if ($i == "ReadLabel") rcol = i
@@ -288,11 +290,11 @@ END {
 
 if [ "$count" -gt 0 ]; then
     echo "Found $count rows with 4qA and MappedEstimatedCopies > 3"
-    lod=$(bash /data/neynjo24/realfshd/fshd/spanning_ruleout_sample.sh "$SUMMARY_TSV")
-    
+    lod=$(bash ${REALPATH}/spanning_ruleout_sample.sh "$SUMMARY_TSV")
+
     echo "LOD: $lod"
     lod_prob=$(echo $lod | cut -f2 -d" ")
-    # 
+    #
     lod_status=$(echo $lod | cut -f3 -d" ")
     if [ "$lod_status" == "TRUE" ]; then
         echo "✅ Enough sequencing to be $lod_prob confident of negative FSHD (≥ Threshold ($LOD_THRESH))"

@@ -3,25 +3,24 @@
 # set -euo pipefail
 
 # RAW INPUT
-INPUT_UBAM=$1 #$/data/neynjo24/ubam_chunks/AS2603/chunk_001.bam /data/neynjo24/ubam/QGXHXX240243_fast_unaligned.bam # 
+INPUT_UBAM=$1 #$/data/neynjo24/ubam_chunks/AS2603/chunk_001.bam /data/neynjo24/ubam/QGXHXX240243_fast_unaligned.bam #
 OUTDIR=$2 #/data/neynjo24/results_realfshd/AS2603/chunk001
-PREFIX=$3 # AS2603
-INPUT_BLOW5=$4 #/data/neynjo24/blow5/QGXHXX240243_reads_reduced.blow5 # $4
+INPUT_BLOW5=$3 #/data/neynjo24/blow5/QGXHXX240243_reads_reduced.blow5 # $4
+REBASECALLED_UBAM=$4
 
-# REBASECALLED_UBAM
-REBASECALLED_UBAM=${OUTDIR}/${PREFIX}_rebasecalled_supmeth_unaligned.bam
+PREFIX="SAMPLE"
+
 
 # Default Inputs
-REALPATH=/data/hasindu/realfshd/fshd
+REALPATH=$(dirname "$(readlink -f "$0")")
 REF=${REALPATH}/genome/hs1.fa
 REGION_BED=${REALPATH}/inputs/d4z4_region.chm13.bed
 MMI="${REALPATH}/inputs/hs1.mmi"
 
 # Paths to tools
-SAMTOOLS=/install/samtools-1.18/samtools
-MINIMAP2=/install/minimap2-2.26/minimap2
-SLOW5TOOLS=/install/slow5tools-v1.3.0/slow5tools
-SLOW5DORADO=/install/slow5-dorado-1.1.1/bin/slow5-dorado
+SAMTOOLS=samtools
+MINIMAP2=minimap2
+SLOW5TOOLS=slow5tools
 
 # Parameters
 MAPQ=30
@@ -39,7 +38,7 @@ $SAMTOOLS fastq -TMM,ML "$INPUT_UBAM" > "${INPUT_FASTQ}"
 echo "minimap"
 CHM13_BAM="${OUTDIR}/${PREFIX}_fast_chm13.bam"
 $MINIMAP2 -x $MODE -a "$MMI" "$INPUT_FASTQ" -t ${PBS_NCPUS:-8} |\
-    $SAMTOOLS sort -o "${CHM13_BAM}" 
+    $SAMTOOLS sort -o "${CHM13_BAM}"
 $SAMTOOLS index "${CHM13_BAM}"
 
 echo "extracting reads mapping to the region of interest"
@@ -85,9 +84,8 @@ ${SLOW5TOOLS} index ${EXTRACTED_BLOW5}
 
 # # rebasecall with SUP
 echo "rebasecall with SUP"
-${SLOW5DORADO} basecaller /install/slow5-dorado-1.1.1/models/dna_r10.4.1_e8.2_400bps_sup@v5.2.0 "${EXTRACTED_BLOW5}" \
+${SLOW5_DORADO} basecaller -x cuda:all --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL_SUP} "${EXTRACTED_BLOW5}" \
     --modified-bases 5mCG_5hmCG \
-    --models-directory /install/slow5-dorado-1.1.1/models/ \
     > ${REBASECALLED_UBAM}
 
 # Remove blow5
