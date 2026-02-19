@@ -16,6 +16,8 @@ def initialise_results(results, bed_df, features, lengths_dict):
             results[read_id]["pLAM_contains_polyA"] = False
             results[read_id]["pLAM_polyA_coords"] = None
             results[read_id]["pLAM_polyA_signal"] = None
+            results[read_id]["SSLP_coords"] = None
+            results[read_id]["SSLP_length"] = None
             results[read_id]["ReadLength"] = lengths_dict.get(read_id, "NA")
             results[read_id]["4qA_marker_percent_identity"] = "NA"
             results[read_id]["4qB_marker_percent_identity"] = "NA"
@@ -508,10 +510,7 @@ def read_classification(psl_file, output_table, bed_file, sslp_file, bam_file, f
         # Include PercentIdentity for specific features
         if feature in ["4qA_marker", "4qB_marker"]:
             columns.append(f"{feature}_percent_identity")
-    columns.extend(["pLAM_contains_polyA", "pLAM_polyA_coords", "pLAM_polyA_signal"])
-
-    if sslp_data:
-        columns.extend(["SSLP_coords", "SSLP_length"])
+    columns.extend(["pLAM_contains_polyA", "pLAM_polyA_coords", "pLAM_polyA_signal", "SSLP_coords", "SSLP_length"])
 
     columns.extend(["MappedEstimatedCopies", "MappedEstimatedCopiesPlus", "MappedEstimatedCopiesMinus"])
     # print(results_df)
