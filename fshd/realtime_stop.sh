@@ -42,7 +42,7 @@ LOD_THRESH=0.95 # Limit of detection threshold for FSHD
 # Positive case - Stop sequencing
 # ---------------------------------------------------------------------------------------------
 awk -v thresh="$POSITIVE_THRESH" -F'\t' '
-$1=="Diagnostic/Positive" && $7>thresh {
+$1=="Diagnostic/Positive" && $7>=thresh {
     print "✅ Positive FSHD1 case, enough sequencing"
     exit 100
 }' "${STATUS_TSV}"
@@ -56,17 +56,22 @@ fi
 # ---------------------------------------------------------------------------------------------
 # Easy negative case (1x 4qA with more than 10 copies and 1x 4qB)
 # ---------------------------------------------------------------------------------------------
+read negative_status message < <(
 awk -F'\t' '
 $1 == "Diagnostic/Negative" { 
     count++; 
     if ($NF >= 3) ok++ 
 } 
 END { 
-    if (count == 2 && ok == 2) 
-        print "✅ Have a non-permissive 4qA and 4qB reads with ≥3 reads each"; 
-    else 
-        print "❌ One or both Diagnostic/Negative rows have <3 reads" 
+    if (count == 2 && ok == 2) {
+        print "True", "✅ Have a non-permissive 4qA and 4qB reads with ≥3 reads each"; 
+    } else {
+        print "False", "❌ One or both Diagnostic/Negative rows have <3 reads" 
+    }
 }' $STATUS_TSV
+)
+
+echo "$message"
 
 # ---------------------------------------------------------------------------------------------
 # Easy negative case 2 *only run if there's a complete reads for 4q*
@@ -299,8 +304,9 @@ else
 fi
 
 # If all meet threshold, stop sequencing
-if [ "$passed_coverage" = true ] && [ "$lod_status" == "TRUE" ]; then
-    echo "✅ Sample meets both coverage and LOD criteria. Stopping sequencing."
+if [[ "$passed_coverage" == "true" && \
+      ( "$lod_status" == "TRUE" || "$negative_status" == "True" ) ]]; then
+    echo "✅ Sample meets both coverage and negative/lod status criteria. Stopping sequencing."
     # exit 0
 else
     echo "❌ Sample does not meet thresholds. Continuing sequencing."
