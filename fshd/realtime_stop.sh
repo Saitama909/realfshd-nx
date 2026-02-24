@@ -41,16 +41,39 @@ LOD_THRESH=0.95 # Limit of detection threshold for FSHD
 # ---------------------------------------------------------------------------------------------
 # Positive case - Stop sequencing
 # ---------------------------------------------------------------------------------------------
+positive_status=false
+read positive_status < <(
 awk -v thresh="$POSITIVE_THRESH" -F'\t' '
 $1=="Diagnostic/Positive" && $7>=thresh {
-    print "✅ Positive FSHD1 case, enough sequencing"
-    exit 100
+    print "true"
 }' "${STATUS_TSV}"
+)
 
 # Check awk exit code
 # Stop the script if it's enough
-if [ $? -eq 100 ]; then
-    exit 0   # stop the script
+if [ "$positive_status" = "true" ]; then
+    readlabel_col=$(awk -F'\t' 'NR==1 { for (i=1; i<=NF; i++) if ($i=="ReadLabel") print i }' $SUMMARY_TSV)
+	copies_col=$(awk -F'\t' 'NR==1 { for (i=1; i<=NF; i++) if ($i=="MappedEstimatedCopies") print i }' $SUMMARY_TSV)
+
+	# Check if all the complete reads have the same floored length
+	# And if not, check how many reads each length has, and if there are more than 2 different lengths, stop the script and ask for manual review
+	echo "Checking if all complete reads have the same length..."
+	num_copies=$(awk -F'\t' -v rl_col="$readlabel_col" -v cp_col="$copies_col" 'NR>1 && $rl_col=="Complete 4qA" { print int($cp_col) }' $SUMMARY_TSV | sort | uniq -c | sed 's/^[ \t]*//')
+
+	# IF there is more than 1 different length, check how many reads in each length, if there are more than >=3 reads each length, stop the script
+	num_lengths=$(echo "$num_copies" | wc -l)
+	if [ "$num_lengths" -gt 1 ]; then
+		num_reads=$(echo "$num_copies" | sort | tail -n1 | cut -f1 -d" ")
+		if [ "$num_reads" -ge 3 ]; then
+			echo "✅ Positive FSHD1 case, enough sequencing"
+			exit 0
+		else
+			echo "❌ Warning: More than 1 different contracted length found, but not enough reads in each length, continue sequencing"
+		fi
+	else
+		echo "✅ Positive FSHD1 case, enough sequencing"
+		exit 0
+	fi
 fi
 
 # ---------------------------------------------------------------------------------------------
