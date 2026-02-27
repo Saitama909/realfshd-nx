@@ -36,6 +36,7 @@ fi
 POSITIVE_THRESH=3 # Positive FSHD
 NEGATIVE_THRESH=5 # Negative FSHD
 COVERAGE_THRESH=30 # Threshold for gene to stop being in read fish from panel
+COVERAGE_THRESH_CHRX=30
 LOD_THRESH=0.95 # Limit of detection threshold for FSHD
 
 # ---------------------------------------------------------------------------------------------
@@ -65,13 +66,13 @@ if [ "$positive_status" = "true" ]; then
 	if [ "$num_lengths" -gt 1 ]; then
 		num_reads=$(echo "$num_copies" | sort | tail -n1 | cut -f1 -d" ")
 		if [ "$num_reads" -ge 3 ]; then
-			echo "✅ Positive FSHD1 case, enough sequencing"
+			echo "✅ Positive FSHD1 case, STOP SEQUENCING"
 			exit 0
 		else
 			echo "❌ Warning: More than 1 different contracted length found, but not enough reads in each length, continue sequencing"
 		fi
 	else
-		echo "✅ Positive FSHD1 case, enough sequencing"
+		echo "✅ Positive FSHD1 case, STOP SEQUENCING"
 		exit 0
 	fi
 fi
@@ -171,10 +172,47 @@ END {
 # Coverage check for myopathy panel
 # ---------------------------------------------------------------------------------------------
 # Only check coverage if not all genes have complete coverage
+# function triggered when all autosomal chromsome reach coverage threshold but some genes on chrX haven't reach the chrX coverage threshold
+# Check if chrX coverage is on average half autosomal chr, chrX threshold become 15x, otherwise keep 30x
+check_sex_coverage() {
+    PANEL_COV_TXT="${SAMPLE_DIR}/all_myopathy_panel_chm13_coverage.txt"
+    PANEL_COV_BED="${SAMPLE_DIR}/all_myopathy_panel_chm13_coverage.bed"
+    
+    samtools depth -a -b $MYOP_PANEL_BED $MYOP_BAM > $PANEL_COV_TXT
+    
+    BED_COV="${SAMPLE_DIR}/myop_panel_chm13_coverage.bed"
+    awk -F'\t' '{print $1"\t"$2"\t"$2"\t"$3}' $PANEL_COV_TXT > "$PANEL_COV_BED"
+
+    bedtools intersect -a $MYOP_PANEL_BED -b $PANEL_COV_BED -wa -wb > ${SAMPLE_DIR}/all_panel_cov_intersect.bed
+
+    # Remove chrY from bed file
+    grep -v "^chrY" ${SAMPLE_DIR}/all_panel_cov_intersect.bed > ${SAMPLE_DIR}/all_panel_cov_intersect_nochrY.bed
+    mv ${SAMPLE_DIR}/all_panel_cov_intersect_nochrY.bed ${SAMPLE_DIR}/all_panel_cov_intersect.bed
+    
+    # Check average coverage of chrX and autosomal chr
+    read sex coverage_thresh_chrX avgX avgAuto diff < <(
+    awk -F'\t' '
+    $1 == "chrX" { sumX += $8; countX++ }
+    $1 != "chrX" { sumAuto += $8; countAuto++ }
+    END {
+        avgX = (countX > 0) ? sumX / countX : 0
+        avgAuto = (countAuto > 0) ? sumAuto / countAuto : 0
+        diff = (avgAuto / 2) - avgX
+        if (diff < 0) diff = -diff
+        if (diff <= 5) {
+            print "male", 15, avgX, avgAuto, diff
+        } else {
+            print "female", 30, avgX, avgAuto, diff
+        }
+    }' ${SAMPLE_DIR}/all_panel_cov_intersect.bed
+    )
+
+    echo "$sex $coverage_thresh_chrX $avgX $avgAuto $diff"
+}
+
 TMP_PANEL="${SAMPLE_DIR}/myopathy_panel_chm13_temp.bed"
 COVERAGE_OUTPUT="${SAMPLE_DIR}/myopathy_panel_chm13_coverage.txt"
 output="${SAMPLE_DIR}/genes_complete_coverage.txt"
-
 coverage_function() {
     echo "Checking coverage for myopathy panel genes..."
     # Duplicate myop bed file for reducing purpose once coverage reached
@@ -198,17 +236,33 @@ coverage_function() {
     # get intersected regions of coverage and panel
     bedtools intersect -a $TMP_PANEL -b $BED_COV -wa -wb > ${SAMPLE_DIR}/panel_cov_intersect.bed
 
-    awk -v cov_thresh="$COVERAGE_THRESH" \
+    if awk -F'\t' '
+    NR > 1 && $1 != "chrX" && $1 != "chrY" { exit 1 }
+    ' ${SAMPLE_DIR}/panel_cov_intersect.bed
+    then
+        echo "All autosomal genes have meet threshold, checking chrX genes"
+        read sex COVERAGE_THRESH_CHRX avgX avgAuto diff < <(check_sex_coverage)
+        echo "Sex: $sex, chrX coverage threshold: $COVERAGE_THRESH_CHRX, avgX: $avgX, avgAuto: $avgAuto, diff: $diff"
+        # COVERAGE_THRESH_CHRX=$(check_sex_coverage)
+    fi
+
+    awk -v cov_thresh="$COVERAGE_THRESH", \
+        -v chrX_thresh="$COVERAGE_THRESH_CHRX", \
         -F'\t' '
     {
+        chrom = $1
         gene = $4
         cov  = $8
 
         sum_cov[gene] += cov
         base_count[gene]++
+        gene_chr[gene] = chrom   # store chromosome per gene
 
-        if (cov < cov_thresh)
+        if (chrom == "chrX" && cov < chrX_thresh)
             under[gene]++
+        else if (chrom != "chrX" && cov < cov_thresh)
+            under[gene]++
+
     }
 
     END {
@@ -222,12 +276,19 @@ coverage_function() {
             above_pct = 1 - (under_count / total)
             avg = sum_cov[g] / total
 
-            pass = (avg >= cov_thresh && above_pct >= 0.95 ? "YES" : "NO")
+            # Select threshold based on chromosome
+            if (gene_chr[g] == "chrX")
+                threshold = chrX_thresh
+            else
+                threshold = cov_thresh
+
+            pass = (avg >= threshold && above_pct >= 0.95 ? "YES" : "NO")
 
             printf "%-20s\t%-15.2f\t%-10d\t%-15d\t%-18d\t%-15.3f\t%s\n",
                 g, avg, total, sum_cov[g], under_count, above_pct, pass
         }
     }' "${SAMPLE_DIR}/panel_cov_intersect.bed" > "$output"
+
 
     # Remove genes with complete coverage from tmp panel bed file
     while IFS=$'\t' read -r gene cov_avg length  total_cov    bases_under_thresh prop_above_thresh   pass_thresh;
@@ -249,9 +310,9 @@ coverage_function() {
 # if lines in tmp panel = lines in MYOP PANEL
 # then all genes have complete coverage
 if [ -f ${TMP_PANEL} ]; then
-    num_genes_to_complete=$(wc -l < ${TMP_PANEL})
+    num_genes_to_complete=$(wc -l < <(grep -v "chrY" ${TMP_PANEL}))
 else
-    num_genes_to_complete=$(wc -l < $MYOP_PANEL_BED)
+    num_genes_to_complete=$(wc -l < <(grep -v "chrY" ${MYOP_PANEL_BED}))
 fi
 # if [ -f ${SAMPLE_DIR}/genes_complete_coverage.txt ]; then
 #     num_genes_complete=$(wc -l < ${SAMPLE_DIR}/genes_complete_coverage.txt)
@@ -259,7 +320,7 @@ fi
 #     num_genes_complete=0
 # fi
 # num_genes_complete=$(wc -l < ${SAMPLE_DIR}/genes_complete_coverage.txt)
-num_genes_panel=$(wc -l < $MYOP_PANEL_BED)
+num_genes_panel=$(wc -l < <(grep -v "chrY" ${MYOP_PANEL_BED}))
 passed_coverage=false
 # if [ "$num_genes_complete" -ge "$num_genes_panel" ]; then
 if [ "$num_genes_to_complete" -eq 0 ]; then
@@ -268,7 +329,7 @@ if [ "$num_genes_to_complete" -eq 0 ]; then
 else
     echo "Run coverage check for myopathy panel genes..."
     coverage_function
-    num_genes_to_complete=$(wc -l < ${TMP_PANEL})
+    num_genes_to_complete=$(wc -l < <(grep -v "chrY" ${TMP_PANEL}))
     echo "Genes with not enough coverage = ${num_genes_to_complete}"
     echo "Total genes in myopathy panel = ${num_genes_panel}"
     # if [ "$num_genes_complete" -ge "$num_genes_panel" ]; then
@@ -329,7 +390,7 @@ fi
 # If all meet threshold, stop sequencing
 if [[ "$passed_coverage" == "true" && \
       ( "$lod_status" == "TRUE" || "$negative_status" == "True" ) ]]; then
-    echo "✅ Sample meets both coverage and negative/lod status criteria. Stopping sequencing."
+    echo "✅ Sample meets both coverage and negative/lod status criteria. STOP SEQUENCING."
     # exit 0
 else
     echo "❌ Sample does not meet thresholds. Continuing sequencing."
