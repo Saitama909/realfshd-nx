@@ -12,8 +12,8 @@ RED="\e[31m"
 NORMAL="\033[0;39m"
 
 # terminate script
-die() { echo -e $RED"$1"$NORMAL >&2; echo; exit 1; }
-failed() { echo -e $RED"$1"$NORMAL >&2; echo; echo $2 >> $TMP_FAILED; exit 1; }
+die() { echo -e ${RED}"$1"${NORMAL} >&2; echo; exit 1; }
+failed() { echo -e ${RED}"$1"${NORMAL} >&2; echo; echo "$2" >> "$TMP_FAILED"; exit 1; }
 
 ## Handle flags
 while getopts "l:f:p:c" o; do
@@ -40,32 +40,30 @@ shift $((OPTIND-1))
 
 #====================User Start - Tool check====================
 
-[ -z ${SLOW5TOOLS} ] && export SLOW5TOOLS=slow5tools
-[ -z ${BLUECRAB} ] && export BLUECRAB=blue-crab
-#[ -z ${BUTTERY_EEL} ] && export BUTTERY_EEL=buttery-eel
-[ -z ${SLOW5_DORADO} ] && export SLOW5_DORADO=slow5-dorado
-# [ -z ${MINIMAP2} ] && export MINIMAP2=minimap2
-# [ -z ${SAMTOOLS} ] && export SAMTOOLS=samtools
-[ -z ${FSHD_PRE} ] && export FSHD_PRE=pre_mapping_n_rebasecall.sh
-[ -z ${FSHD_PIPELINE_WRAPPER} ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
-[ -z ${FSHD_POST} ] && export FSHD_POST=fshd_post_merge.sh
-[ -z ${FSHDTOOLS} ] && export FSHD_TOOLS=fshdtools
+[ -z "${SLOW5TOOLS}" ] && export SLOW5TOOLS=slow5tools
+[ -z "${BLUECRAB}" ] && export BLUECRAB=blue-crab
+#[ -z "${BUTTERY_EEL}" ] && export BUTTERY_EEL=buttery-eel
+[ -z "${SLOW5_DORADO}" ] && export SLOW5_DORADO=slow5-dorado
+# [ -z "${MINIMAP2}" ] && export MINIMAP2=minimap2
+# [ -z "${SAMTOOLS}" ] && export SAMTOOLS=samtools
+[ -z "${FSHD_PRE}" ] && export FSHD_PRE=pre_mapping_n_rebasecall.sh
+[ -z "${FSHD_PIPELINE_WRAPPER}" ] && export FSHD_PIPELINE_WRAPPER=fshd_pipeline_wrapper.sh
+[ -z "${FSHD_POST}" ] && export FSHD_POST=fshd_post_merge.sh
+[ -z "${FSHDTOOLS}" ] && export FSHDTOOLS=fshdtools
 
-$SLOW5TOOLS --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
-$BLUECRAB --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
-#command -v $BUTTERY_EEL &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
-$SLOW5_DORADO --version &> /dev/null || die "[pipeline.sh] slow5-dorado not found. Add to PATH or export SLOW5_DORADO=/path/to/slow5-dorado. Exiting."
-# $MINIMAP2 --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
-# $SAMTOOLS --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
-$FSHDTOOLS --version &> /dev/null || die "[pipeline.sh] fshdtools not found. Add to PATH or export FSHDTOOLS=/path/to/fshdtools. Exiting."
+"$SLOW5TOOLS" --version &> /dev/null || die "[pipeline.sh] slow5tools not found. Add to PATH or export SLOW5TOOLS=/path/to/slow5tools. Exiting."
+"$BLUECRAB" --version &> /dev/null || die "[pipeline.sh] bluecrab not found. Add to PATH or export BLUECRAB=/path/to/bluecrab. Exiting."
+#command -v "$BUTTERY_EEL" &> /dev/null || die "[pipeline.sh] buttery-eel not found. Add to PATH or export BUTTERY_EEL=/path/to/buttery-eel. Exiting."
+"$SLOW5_DORADO" --version &> /dev/null || die "[pipeline.sh] slow5-dorado not found. Add to PATH or export SLOW5_DORADO=/path/to/slow5-dorado. Exiting."
+# "$MINIMAP2" --version &> /dev/null || die "[pipeline.sh] minimap2 not found. Add to PATH or export MINIMAP2=/path/to/minimap2. Exiting."
+# "$SAMTOOLS" --version &> /dev/null || die "[pipeline.sh] samtools not found. Add to PATH or export SAMTOOLS=/path/to/samtools. Exiting."
+"$FSHDTOOLS" --version &> /dev/null || die "[pipeline.sh] fshdtools not found. Add to PATH or export FSHDTOOLS=/path/to/fshdtools. Exiting."
 
-#EEL="$BUTTERY_EEL -g $DORADO_BIN --port auto --use_tcp --device cuda:all"
-
-#[ -z ${DORADO_BIN} ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
-[ -z ${DORADO_MODEL_PATH} ] && die "[pipeline.sh] MODEL_PATH not set. export MODEL_PATH=/path/to/model. Exiting."
-[ -z ${DORADO_MODEL_FAST} ] && die "[pipeline.sh] DORADO_MODEL_FAST not set. export DORADO_MODEL=dorado_model. Exiting."
-[ -z ${DORADO_MODEL_SUP} ] && die "[pipeline.sh] DORADO_MODEL_SUP not set. export DORADO_MODEL=dorado_model. Exiting."
-# [ -z ${REFIDX} ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
+#[ -z "${DORADO_BIN}" ] && die "[pipeline.sh] DORADO_BIN not set. export DORADO_BIN=/path/to/dorado. Exiting."
+[ -z "${DORADO_MODEL_PATH}" ] && die "[pipeline.sh] MODEL_PATH not set. export MODEL_PATH=/path/to/model. Exiting."
+[ -z "${DORADO_MODEL_FAST}" ] && die "[pipeline.sh] DORADO_MODEL_FAST not set. export DORADO_MODEL=dorado_model. Exiting."
+[ -z "${DORADO_MODEL_SUP}" ] && die "[pipeline.sh] DORADO_MODEL_SUP not set. export DORADO_MODEL=dorado_model. Exiting."
+# [ -z "${REFIDX}" ] && die "[pipeline.sh] REFIDX not set. export REFIDX=/path/to/ref.idx. Exiting."
 
 #====================User End - Tool check====================
 
@@ -76,83 +74,100 @@ fi
 
 echo "[pipeline.sh] Starting pipeline with $MAX_PROC max processes"
 counter=0
-while read PIPELINE_INPUT
+
+while read -r PIPELINE_INPUT
 do
 (
     #=======================User Start - Pipeline=======================
 
-    P5_FILEPATH=$PIPELINE_INPUT # first argument
-    P5_DIR=${P5_FILEPATH%/*} # strip filename from .pod5 filepath
-    PARENT_DIR=${P5_DIR%/*} # get folder one heirarchy higher
-    # name of the .pod5 file (strip the path and get only the name with extension)
-    P5_FILENAME=$(basename $P5_FILEPATH)
-    # name of the .pod5 file without the extension
+    P5_FILEPATH="$PIPELINE_INPUT"
+    P5_DIR=${P5_FILEPATH%/*}
+    PARENT_DIR=${P5_DIR%/*}
+    P5_FILENAME=$(basename "$P5_FILEPATH")
     P5_PREFIX=${P5_FILENAME%.*}
 
     # deduce the directory for slow5 and sam files
-    if [[ "$P5_DIR" =~ .*"pod5_pass".* ]]; then
-        SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_pass/slow5_pass/g')
-        SAM_DIR=$(echo $P5_DIR | sed 's/pod5_pass/sam_pass/g')
-        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_pass/pass_logs/g')
-    elif [[ "$P5_DIR" =~ .*"pod5_fail".* ]]; then
-        SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_fail/slow5_fail/g')
-        SAM_DIR=$(echo $P5_DIR | sed 's/pod5_fail/sam_fail/g')
-        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_fail/fail_logs/g')
-    elif [[ "$P5_DIR" =~ .*"pod5_skip".* ]]; then
-        SLOW5_DIR=$(echo $P5_DIR | sed 's/pod5_skip/slow5_skip/g')
-        SAM_DIR=$(echo $P5_DIR | sed 's/pod5_skip/sam_skip/g')
-        LOG_DIR=$(echo $P5_DIR | sed 's/pod5_skip/skip_logs/g')
+    if [[ "$P5_DIR" =~ .*pod5_pass.* ]]; then
+        SLOW5_DIR=$(echo "$P5_DIR" | sed 's/pod5_pass/slow5_pass/g')
+        SAM_DIR=$(echo "$P5_DIR" | sed 's/pod5_pass/sam_pass/g')
+        LOG_DIR=$(echo "$P5_DIR" | sed 's/pod5_pass/pass_logs/g')
+    elif [[ "$P5_DIR" =~ .*pod5_fail.* ]]; then
+        SLOW5_DIR=$(echo "$P5_DIR" | sed 's/pod5_fail/slow5_fail/g')
+        SAM_DIR=$(echo "$P5_DIR" | sed 's/pod5_fail/sam_fail/g')
+        LOG_DIR=$(echo "$P5_DIR" | sed 's/pod5_fail/fail_logs/g')
+    elif [[ "$P5_DIR" =~ .*pod5_skip.* ]]; then
+        SLOW5_DIR=$(echo "$P5_DIR" | sed 's/pod5_skip/slow5_skip/g')
+        SAM_DIR=$(echo "$P5_DIR" | sed 's/pod5_skip/sam_skip/g')
+        LOG_DIR=$(echo "$P5_DIR" | sed 's/pod5_skip/skip_logs/g')
     else
-        SLOW5_DIR=$PARENT_DIR/slow5/
-        SAM_DIR=$PARENT_DIR/sam/
-        LOG_DIR=$PARENT_DIR/logs/
-    fi
-    if [ -z "$SLOW5_DIR" ] || [ -z "$LOG_DIR" ] ; then
-        SLOW5_DIR=$PARENT_DIR/slow5/
-        SAM_DIR=$PARENT_DIR/sam/
-        LOG_DIR=$PARENT_DIR/logs/
+        SLOW5_DIR="$PARENT_DIR/slow5"
+        SAM_DIR="$PARENT_DIR/sam"
+        LOG_DIR="$PARENT_DIR/logs"
     fi
 
-    test -d $SLOW5_DIR/ || { mkdir -p $SLOW5_DIR/; echo "[pipeline.sh] Created $SLOW5_DIR/. Converted SLOW5 files will be here."; }
-    test -d $LOG_DIR/ || { mkdir -p $LOG_DIR/; echo "[pipeline.sh] Created $LOG_DIR/. individual logs for each conversion will be here."; }
-    test -d $SAM_DIR/ || { mkdir -p $SAM_DIR/; echo "[pipeline.sh] Created $SAM_DIR/. SAM files will be here."; }
+    if [ -z "$SLOW5_DIR" ] || [ -z "$LOG_DIR" ]; then
+        SLOW5_DIR="$PARENT_DIR/slow5"
+        SAM_DIR="$PARENT_DIR/sam"
+        LOG_DIR="$PARENT_DIR/logs"
+    fi
 
-    SLOW5_FILEPATH=$SLOW5_DIR/$P5_PREFIX.blow5
-    SLOW5_LONG_FILEPATH=$SLOW5_DIR/$P5_PREFIX.long.blow5
-    UNALN_SAM_FILEPATH=$SAM_DIR/$P5_PREFIX.fast.unaln.sam
-    FASTQ_FILEPATH=$SAM_DIR/$P5_PREFIX.fastq
-    FSHD_OUTPATH=$SAM_DIR/$P5_PREFIX.fshd.out
-    REBASECALLED_UBAM=$SAM_DIR/$P5_PREFIX.sup.unsorted.bam
+    test -d "$SLOW5_DIR" || { mkdir -p "$SLOW5_DIR"; echo "[pipeline.sh] Created $SLOW5_DIR/. Converted SLOW5 files will be here."; }
+    test -d "$LOG_DIR" || { mkdir -p "$LOG_DIR"; echo "[pipeline.sh] Created $LOG_DIR/. individual logs for each conversion will be here."; }
+    test -d "$SAM_DIR" || { mkdir -p "$SAM_DIR"; echo "[pipeline.sh] Created $SAM_DIR/. SAM files will be here."; }
 
-    LOG_FILEPATH=$LOG_DIR/$P5_PREFIX.log
+    SLOW5_FILEPATH="$SLOW5_DIR/$P5_PREFIX.blow5"
+    SLOW5_LONG_FILEPATH="$SLOW5_DIR/$P5_PREFIX.long.blow5"
+    UNALN_SAM_FILEPATH="$SAM_DIR/$P5_PREFIX.fast.unaln.sam"
+    FASTQ_FILEPATH="$SAM_DIR/$P5_PREFIX.fastq"
+    FSHD_OUTPATH="$SAM_DIR/$P5_PREFIX.fshd.out"
+    REBASECALLED_UBAM="$SAM_DIR/$P5_PREFIX.sup.unsorted.bam"
 
-    t1=$(date)
-    ${BLUECRAB} p2s -p1 $P5_FILEPATH -o $SLOW5_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "blue-crab failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t2=$(date)
-    echo -e "$P5_FILEPATH\tp2s\t${t1}\t${t2}" >> ${TIME_LOG}
+    LOG_FILEPATH="$LOG_DIR/$P5_PREFIX.log"
 
-    ${FSHDTOOLS} long ${SLOW5_FILEPATH} -o ${SLOW5_LONG_FILEPATH} >> $LOG_FILEPATH 2>&1 || failed "fshdtools failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t3=$(date)
-    echo -e "$P5_FILEPATH\tlong\t${t2}\t${t3}" >> ${TIME_LOG}
+    run_step() {
+        local STEP_NAME="$1"
+        local CMD_STR="$2"
+        local t_start t_end status
 
-    ${SLOW5_DORADO} basecaller -x cuda:all  --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL_FAST} ${SLOW5_LONG_FILEPATH}  > $UNALN_SAM_FILEPATH  2>> $LOG_FILEPATH  || failed "slow5-dorado failed. check $LOG_FILEPATH" $P5_FILEPATH
-    #${EEL} --log $PARENT_DIR/buttery_eel_logs --call_mods --config $DORADO_MODEL -i $SLOW5_FILEPATH -o $UNALN_SAM_FILEPATH >> $LOG_FILEPATH 2>&1 || failed "buttery-eel failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t4=$(date)
-    echo -e "$P5_FILEPATH\tfastbasecall\t${t3}\t${t4}" >> ${TIME_LOG}
+        t_start=$(date '+%Y-%m-%d %H:%M:%S')
+        echo "[pipeline.sh] START ${STEP_NAME} ${P5_FILEPATH} at ${t_start}" | tee -a "$LOG_FILEPATH"
 
-    ${FSHD_PRE} "$UNALN_SAM_FILEPATH" "$SAM_DIR" "${SLOW5_LONG_FILEPATH}" "$REBASECALLED_UBAM" >> ${LOG_FILEPATH} 2>&1 || failed "[pipeline.sh] FSHD pre-mapping and rebasecall step failed. check $LOG_FILEPATH" $P5_FILEPATH
-    t5=$(date)
-    echo -e "$P5_FILEPATH\tpre\t${t4}\t${t5}" >> ${TIME_LOG}
+        set +e
+        bash -o pipefail -c "$CMD_STR" >> "$LOG_FILEPATH" 2>&1
+        status=$?
+        set -e
 
-    ${FSHD_PIPELINE_WRAPPER} $REBASECALLED_UBAM ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD pipeline wrapper failed. Exiting."
-    t6=$(date)
-    echo -e "$P5_FILEPATH\tfshd\t${t5}\t${t6}" >> ${TIME_LOG}
+        t_end=$(date '+%Y-%m-%d %H:%M:%S')
 
-    ${FSHD_POST} ${FSHD_OUTPATH}/ >> $LOG_FILEPATH 2>&1 || die "[pipeline.sh] FSHD post step failed. Exiting."
-    t7=$(date)
-    echo -e "$P5_FILEPATH\tpost\t${t6}\t${t7}" >> ${TIME_LOG}
+        if [ "$status" -eq 0 ]; then
+            echo "[pipeline.sh] SUCCESS ${STEP_NAME} ${P5_FILEPATH} at ${t_end}" | tee -a "$LOG_FILEPATH"
+            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tSUCCESS\t${status}" >> "${TIME_LOG}"
+        else
+            echo "[pipeline.sh] FAIL ${STEP_NAME} ${P5_FILEPATH} at ${t_end} (exit=${status})" | tee -a "$LOG_FILEPATH"
+            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tFAIL\t${status}" >> "${TIME_LOG}"
+            failed "${STEP_NAME} failed. check $LOG_FILEPATH" "$P5_FILEPATH"
+        fi
+    }
 
-    echo "[pipeline.sh] Done $P5_FILEPATH"
+    run_step "p2s" \
+        "\"${BLUECRAB}\" p2s -p1 \"$P5_FILEPATH\" -o \"$SLOW5_FILEPATH\""
+
+    run_step "long" \
+        "\"${FSHDTOOLS}\" long \"$SLOW5_FILEPATH\" -o \"$SLOW5_LONG_FILEPATH\""
+
+    run_step "fastbasecall" \
+    "${SLOW5_DORADO} basecaller -x cuda:0 --slow5_batchsize 64 --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL_FAST} ${SLOW5_LONG_FILEPATH} > ${UNALN_SAM_FILEPATH}"
+    
+    run_step "pre" \
+        "\"${FSHD_PRE}\" \"$UNALN_SAM_FILEPATH\" \"$SAM_DIR\" \"$SLOW5_LONG_FILEPATH\" \"$REBASECALLED_UBAM\""
+
+    run_step "fshd" \
+        "\"${FSHD_PIPELINE_WRAPPER}\" \"$REBASECALLED_UBAM\" \"${FSHD_OUTPATH}/\""
+
+    run_step "post" \
+        "\"${FSHD_POST}\" \"${FSHD_OUTPATH}/\""
+
+    echo "[pipeline.sh] Done $P5_FILEPATH" | tee -a "$LOG_FILEPATH"
 
     PIPELINE_OUTPUT="$REBASECALLED_UBAM"
     #=======================User End - Pipeline=======================
@@ -160,10 +175,11 @@ do
     echo "realfreq-pipeline-output:$PIPELINE_OUTPUT"
 )&
     ((counter++))
-    if [ $counter -ge $MAX_PROC ]; then
+    if [ "$counter" -ge "$MAX_PROC" ]; then
         echo "[pipeline.sh] Waiting for $counter jobs to finish."
         wait
         counter=0
     fi
 done
+
 wait
