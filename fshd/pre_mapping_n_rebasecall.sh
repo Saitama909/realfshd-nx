@@ -154,6 +154,7 @@ run_logged() {
 # Convert to FASTQ
 UBAM_BASE=$(basename $INPUT_UBAM)
 INPUT_FASTQ="${OUTDIR}/${UBAM_BASE%.bam}.fastq"
+
 run_logged "samtools_fastq" \
     "$SAMTOOLS fastq -TMM,ML \"$INPUT_UBAM\" > \"$INPUT_FASTQ\""
 
@@ -161,9 +162,9 @@ echo "minimap"
 CHM13_BAM="${OUTDIR}/${PREFIX}_fast_chm13.bam"
 SPLIT_PREFIX="${OUTDIR}/${PREFIX}_hs1_split_tmp"
 
-echo "RUNNING: $MINIMAP2 -K 75M -x $MODE -a $MMI $INPUT_FASTQ --split-prefix $SPLIT_PREFIX -t 6 | $SAMTOOLS sort -o $CHM13_BAM" >> "$PERF_LOG"
+echo "RUNNING: $MINIMAP2 -K 50M -x $MODE -a $MMI $INPUT_FASTQ --split-prefix $SPLIT_PREFIX -t 6 | $SAMTOOLS sort -o $CHM13_BAM" >> "$PERF_LOG"
 run_logged "minimap2_sort" \
-    "$MINIMAP2 -K 75M -x \"$MODE\" -a \"$MMI\" \"$INPUT_FASTQ\" --split-prefix \"$SPLIT_PREFIX\" -t 6 | $SAMTOOLS sort -o \"$CHM13_BAM\""
+    "$MINIMAP2 -K 50M -x \"$MODE\" -a \"$MMI\" \"$INPUT_FASTQ\" --split-prefix \"$SPLIT_PREFIX\" -t 6 | $SAMTOOLS sort -o \"$CHM13_BAM\""
 
 run_logged "samtools_index_chm13" \
     "$SAMTOOLS index \"$CHM13_BAM\""
@@ -227,6 +228,6 @@ run_logged "slow5_dorado_sup" \
     "${SLOW5_DORADO} basecaller -x cuda:all --models-directory ${DORADO_MODEL_PATH} ${DORADO_MODEL_PATH}/${DORADO_MODEL_SUP} \"${EXTRACTED_BLOW5}\" --modified-bases 5mCG_5hmCG > \"${REBASECALLED_UBAM}\""
 
 # Remove blow5
-# run_logged "cleanup" \
-#     "rm -f \"${EXTRACTED_BLOW5}\" \"${EXTRACTED_BLOW5}.idx\" \"${INPUT_FASTQ}\" \"${D4Z4_ROI_BAM}\" \"${D4Z4_ROI_BAM}.bai\""
-# rm "$d4z4_rid"
+run_logged "cleanup" \
+    "rm -f \"${EXTRACTED_BLOW5}\" \"${EXTRACTED_BLOW5}.idx\" \"${INPUT_FASTQ}\" \"${D4Z4_ROI_BAM}\" \"${D4Z4_ROI_BAM}.bai\""
+# # rm "$d4z4_rid"

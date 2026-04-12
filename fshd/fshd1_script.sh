@@ -243,7 +243,7 @@ SPLIT_PREFIX="${OUTDIR}/${PREFIX}_hs1_split_tmp"
 
 run_logged "minimap2_chm13" \
     "$MINIMAP2 -x \"$MODE\" -a \"$MMI\" \"$INPUT_FASTQ\" --split-prefix \"$SPLIT_PREFIX\" -t ${THREADS} | $SAMTOOLS sort -o \"${OUTDIR}/${PREFIX}_chm13.bam\""
-return 0 2>/dev/null || exit 0
+
 run_logged "extract_d4z4_reads" \
     "$SAMTOOLS view -L \"$REGION_BED\" -Sb \"${OUTDIR}/${PREFIX}_chm13.bam\" | $SAMTOOLS sort -o \"${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam\""
 run_logged "index_d4z4_reads" \
@@ -251,20 +251,29 @@ run_logged "index_d4z4_reads" \
 
 READS_OF_INTEREST_BAM="${OUTDIR}/${PREFIX}_reads_of_interest.bam"
 
-if [[ -s "$READS_OF_INTEREST_BAM" && -s "${READS_OF_INTEREST_BAM}.bai" ]]; then
-    echo "Using existing reads_of_interest BAM: ${READS_OF_INTEREST_BAM}"
-else
-    echo "Remap with winnowmap to CHM13"
-    run_logged "winnowmap_reads_of_interest" \
-        "$SAMTOOLS view -N <($SAMTOOLS view \"${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam\" | cut -f1 | sort | uniq) -b \"${INPUT_UBAM}\" | \
-         $SAMTOOLS fastq -TMM,ML - | \
-         winnowmap -W \"${REPETITIVE_REGIONS}\" -Y -y -ax \"$MODE\" \"$REF\" - -t ${THREADS} | \
-         $SAMTOOLS view -L \"$REGION_BED\" -Sb | \
-         $SAMTOOLS sort -o \"${READS_OF_INTEREST_BAM}\""
-    run_logged "index_reads_of_interest" \
-        "$SAMTOOLS index \"${READS_OF_INTEREST_BAM}\""
-fi
-
+# if [[ -s "$READS_OF_INTEREST_BAM" && -s "${READS_OF_INTEREST_BAM}.bai" ]]; then
+#     echo "Using existing reads_of_interest BAM: ${READS_OF_INTEREST_BAM}"
+# else
+#     echo "Remap with winnowmap to CHM13"
+#     run_logged "winnowmap_reads_of_interest" \
+#         "$SAMTOOLS view -N <($SAMTOOLS view \"${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam\" | cut -f1 | sort | uniq) -b \"${INPUT_UBAM}\" | \
+#          $SAMTOOLS fastq -TMM,ML - | \
+#          winnowmap -W \"${REPETITIVE_REGIONS}\" -Y -y -ax \"$MODE\" \"$REF\" - -t ${THREADS} | \
+#          $SAMTOOLS view -L \"$REGION_BED\" -Sb | \
+#          $SAMTOOLS sort -o \"${READS_OF_INTEREST_BAM}\""
+#     run_logged "index_reads_of_interest" \
+#         "$SAMTOOLS index \"${READS_OF_INTEREST_BAM}\""
+# fi
+echo "Remap with winnowmap to CHM13"
+run_logged "winnowmap_reads_of_interest" \
+    "$SAMTOOLS view -N <($SAMTOOLS view \"${OUTDIR}/${PREFIX}_d4z4_reads_of_interest.bam\" | cut -f1 | sort | uniq) -b \"${INPUT_UBAM}\" | \
+        $SAMTOOLS fastq -TMM,ML - | \
+        winnowmap -W \"${REPETITIVE_REGIONS}\" -Y -y -ax \"$MODE\" \"$REF\" - -t ${THREADS} | \
+        $SAMTOOLS view -L \"$REGION_BED\" -Sb | \
+        $SAMTOOLS sort -o \"${READS_OF_INTEREST_BAM}\""
+run_logged "index_reads_of_interest" \
+    "$SAMTOOLS index \"${READS_OF_INTEREST_BAM}\""
+    
 echo "Generating FASTA from uBAM"
 run_logged "generate_reads_fasta" \
     "$SAMTOOLS view -N <($SAMTOOLS view \"${OUTDIR}/${PREFIX}_reads_of_interest.bam\" | cut -f1 | sort | uniq) -b \"$INPUT_UBAM\" | $SAMTOOLS fasta > \"${OUTDIR}/${PREFIX}_reads_of_interest.fasta\""
@@ -421,13 +430,20 @@ fi
 run_logged "high_prob_bedgraph" \
     "awk '\$5 > 0.75 {print \$1, \$2, \$3, \$5}' \"${OUTDIR}/${PREFIX}_meth_reads.bed\" | sort -k1,1 -k2,2n > \"${OUTDIR}/${PREFIX}_meth_reads.high_prob.bedGraph\""
 
+run_logged "high_prob_bigwig" \
+    "$BG2BW \"${OUTDIR}/${PREFIX}_meth_reads.high_prob.bedGraph\" \"${OUTDIR}/${PREFIX}_reads_of_interest.chrom.sizes\" \"${OUTDIR}/${PREFIX}_meth_reads.high_prob.bw\""
+
 run_logged "low_prob_bedgraph" \
     "awk '\$5 < 0.25 {print \$1, \$2, \$3, \$5}' \"${OUTDIR}/${PREFIX}_meth_reads.bed\" | sort -k1,1 -k2,2n > \"${OUTDIR}/${PREFIX}_meth_reads.low_prob.bedGraph\""
+
+run_logged "low_prob_bigwig" \
+    "$BG2BW \"${OUTDIR}/${PREFIX}_meth_reads.low_prob.bedGraph\" \"${OUTDIR}/${PREFIX}_reads_of_interest.chrom.sizes\" \"${OUTDIR}/${PREFIX}_meth_reads.low_prob.bw\""
 
 run_logged "undefined_prob_bedgraph" \
     "awk '\$5 >= 0.25 && \$5 <= 0.75 {print \$1, \$2, \$3, \$5}' \"${OUTDIR}/${PREFIX}_meth_reads.bed\" | sort -k1,1 -k2,2n > \"${OUTDIR}/${PREFIX}_meth_reads.undefined.bedGraph\""
 
-echo "Skipping BigWig conversion because bedGraphToBigWig currently fails."
+run_logged "undefined_prob_bigwig" \
+    "$BG2BW \"${OUTDIR}/${PREFIX}_meth_reads.undefined.bedGraph\" \"${OUTDIR}/${PREFIX}_reads_of_interest.chrom.sizes\" \"${OUTDIR}/${PREFIX}_meth_reads.undefined.bw\""
 
 run_logged "cleanup_bedgraphs" \
     "rm \"${OUTDIR}/${PREFIX}_meth_reads.high_prob.bedGraph\" \"${OUTDIR}/${PREFIX}_meth_reads.low_prob.bedGraph\" \"${OUTDIR}/${PREFIX}_meth_reads.undefined.bedGraph\""
