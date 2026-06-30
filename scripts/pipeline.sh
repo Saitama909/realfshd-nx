@@ -114,6 +114,7 @@ do
         local TIME_TMP TEGRA_TMP TEGRA_PID=""
         local CPU_PCT="NA"
         local RAM_AVG_MB="NA"
+        local CPU_FREQ_MIN="NA"   # ADDED: minimum CPU frequency during step (MHz) — drops if throttling
 
         TIME_TMP=$(mktemp)
         TEGRA_TMP=$(mktemp)
@@ -157,22 +158,41 @@ do
                 if (n > 0) printf "%.0f", sum/n
                 else print "NA"
             }' "$TEGRA_TMP")
+
+            # ADDED: extract minimum CPU frequency during step
+            # tegrastats reports CPU like: CPU [45%@1728,50%@1728,off,12%@1728]
+            # frequency drops below 1728 MHz indicates thermal throttling
+            CPU_FREQ_MIN=$(gawk '
+            {
+                if (match($0, /CPU[[:space:]]+\[([^\]]+)\]/, c)) {
+                    n = split(c[1], arr, ",")
+                    for (i = 1; i <= n; i++) {
+                        if (match(arr[i], /@([0-9]+)/, f)) {
+                            freq = f[1] + 0
+                            if (min == 0 || freq < min) min = freq
+                        }
+                    }
+                }
+            }
+            END { print (min > 0 ? min : "NA") }' "$TEGRA_TMP")
         fi
 
         rm -f "$TIME_TMP" "$TEGRA_TMP"
 
         if [ "$status" -eq 0 ]; then
             echo "[pipeline.sh] SUCCESS ${STEP_NAME} ${P5_FILEPATH} at ${t_end}" | tee -a "$LOG_FILEPATH"
-            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tSUCCESS\t${status}\t${CPU_PCT}\t${RAM_AVG_MB}" >> "${TIME_LOG}"
+            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tSUCCESS\t${status}\t${CPU_PCT}\t${RAM_AVG_MB}\t${CPU_FREQ_MIN}" >> "${TIME_LOG}"
         else
             echo "[pipeline.sh] FAIL ${STEP_NAME} ${P5_FILEPATH} at ${t_end} (exit=${status})" | tee -a "$LOG_FILEPATH"
-            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tFAIL\t${status}\t${CPU_PCT}\t${RAM_AVG_MB}" >> "${TIME_LOG}"
+            echo -e "${P5_FILEPATH}\t${STEP_NAME}\t${t_start}\t${t_end}\tFAIL\t${status}\t${CPU_PCT}\t${RAM_AVG_MB}\t${CPU_FREQ_MIN}" >> "${TIME_LOG}"
             failed "${STEP_NAME} failed. check $LOG_FILEPATH" "$P5_FILEPATH"
         fi
     }
-
     run_step "p2s" \
-        "\"${BLUECRAB}\" p2s -p1 \"$P5_FILEPATH\" -o \"$SLOW5_FILEPATH\""
+        "\"${BLUECRAB}\" p2s -p1 -c zstd -s svb-zd \"$P5_FILEPATH\" -o \"$SLOW5_FILEPATH\""
+
+    # run_step "p2s" \
+    #     "\"${BLUECRAB}\" p2s -p1 \"$P5_FILEPATH\" -o \"$SLOW5_FILEPATH\""
 
     run_step "long" \
         "\"${FSHDTOOLS}\" long \"$SLOW5_FILEPATH\" -o \"$SLOW5_LONG_FILEPATH\""
