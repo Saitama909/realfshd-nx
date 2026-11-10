@@ -68,7 +68,7 @@ MAPQ=30
 MIN_READ_LENGTH=30000
 MODE=map-ont
 # THREADS="${PBS_NCPUS:-8}"
-THREADS=2
+THREADS=8
 # Create output directory if it doesn't exist
 mkdir -p "$OUTDIR"
 

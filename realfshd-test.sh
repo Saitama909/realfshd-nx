@@ -14,14 +14,14 @@ export FSHD_POST="${REALPATH}/fshd/fshd_post_merge.sh"
 export FSHDTOOLS="${REALPATH}/fshdtools"
 
 # Set maximum performance mode and lock all clocks
-sudo nvpmodel -m 2
+# sudo nvpmodel -m 2
 sudo jetson_clocks
 
 # Verify GPU is at max
 GPU_FREQ=$(cat /sys/devices/platform/bus@0/17000000.gpu/devfreq/17000000.gpu/cur_freq)
 echo "GPU frequency: $GPU_FREQ"
-if [ "$GPU_FREQ" != "1020000000" ]; then
-    echo "WARNING: GPU not locked to 1020 MHz, aborting"
+if [ "$GPU_FREQ" != "918000000" ]; then
+    echo "WARNING: GPU not locked to 918 MHz, aborting"
     exit 1
 fi
 

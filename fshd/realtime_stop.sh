@@ -33,6 +33,111 @@ if [[ ! -f "$MYOP_BAM" ]]; then
 fi
 
 # ---------------------------------------------------------------------------------------------
+# Logging setup (ADDED)
+# ---------------------------------------------------------------------------------------------
+LOG_DIR="/home/william/realfshd/pipeline_logs"
+mkdir -p "$LOG_DIR"
+PERF_LOG="${LOG_DIR}/realtime_stop_step_perf.log"
+
+TEGRASTATS_BIN=$(command -v tegrastats || true)
+GAWK_BIN=$(command -v gawk || true)
+
+if [ ! -f "$PERF_LOG" ]; then
+    echo -e "step\tstart_time\tend_time\twall_sec\tcpu_percent\ttegrastats_cpu_avg\ttegrastats_cpu_max\ttegrastats_gpu_avg\ttegrastats_gpu_max\tstatus" > "$PERF_LOG"
+fi
+
+run_logged() {
+    local STEP_NAME="$1"
+    shift
+    local CMD_STR="$*"
+
+    local TIME_TMP TEGRA_TMP TEGRA_PID=""
+    local CPU_PCT="NA"
+    local TG_CPU_AVG="NA" TG_CPU_MAX="NA"
+    local TG_GPU_AVG="NA" TG_GPU_MAX="NA"
+    local STATUS=0
+
+    TIME_TMP=$(mktemp)
+    TEGRA_TMP=$(mktemp)
+
+    local START_EPOCH START_HUMAN END_EPOCH END_HUMAN WALL_SEC
+    START_EPOCH=$(date +%s)
+    START_HUMAN=$(date '+%Y-%m-%d %H:%M:%S')
+
+    if [ -n "$TEGRASTATS_BIN" ]; then
+        "$TEGRASTATS_BIN" --interval 1000 > "$TEGRA_TMP" 2>/dev/null &
+        TEGRA_PID=$!
+    fi
+
+    /usr/bin/time -f 'CPU_PERCENT=%P' -o "$TIME_TMP" bash -o pipefail -c "$CMD_STR"
+    STATUS=$?
+
+    END_EPOCH=$(date +%s)
+    END_HUMAN=$(date '+%Y-%m-%d %H:%M:%S')
+    WALL_SEC=$((END_EPOCH - START_EPOCH))
+
+    if [ -n "$TEGRA_PID" ]; then
+        kill "$TEGRA_PID" 2>/dev/null || true
+        wait "$TEGRA_PID" 2>/dev/null || true
+    fi
+
+    if grep -q '^CPU_PERCENT=' "$TIME_TMP" 2>/dev/null; then
+        CPU_PCT=$(sed -n 's/^CPU_PERCENT=//p' "$TIME_TMP" | tail -n1)
+    fi
+
+    if [ -n "$GAWK_BIN" ] && [ -s "$TEGRA_TMP" ]; then
+        read TG_CPU_AVG TG_CPU_MAX TG_GPU_AVG TG_GPU_MAX < <(
+            gawk '
+            {
+                if (match($0, /GR3D_FREQ[[:space:]]+([0-9]+)%/, g)) {
+                    gpu = g[1] + 0; gpu_sum += gpu; gpu_n++
+                    if (gpu > gpu_max) gpu_max = gpu
+                }
+                if (match($0, /CPU[[:space:]]+\[([^\]]+)\]/, c)) {
+                    n = split(c[1], arr, ",")
+                    local_sum = 0; local_n = 0
+                    for (i = 1; i <= n; i++) {
+                        if (match(arr[i], /([0-9]+)%/, p)) {
+                            val = p[1] + 0; local_sum += val; local_n++
+                            if (val > cpu_core_max) cpu_core_max = val
+                        }
+                    }
+                    if (local_n > 0) {
+                        sample_avg = local_sum / local_n
+                        cpu_sample_sum += sample_avg; cpu_sample_n++
+                        if (sample_avg > cpu_sample_max) cpu_sample_max = sample_avg
+                    }
+                }
+            }
+            END {
+                cpu_avg = (cpu_sample_n > 0) ? cpu_sample_sum / cpu_sample_n : -1
+                cpu_max = (cpu_sample_n > 0) ? cpu_sample_max : -1
+                gpu_avg = (gpu_n > 0) ? gpu_sum / gpu_n : -1
+                gpu_max_out = (gpu_n > 0) ? gpu_max : -1
+                printf "%s %s %s %s\n",
+                    (cpu_avg < 0 ? "NA" : sprintf("%.2f", cpu_avg)),
+                    (cpu_max < 0 ? "NA" : sprintf("%.2f", cpu_max)),
+                    (gpu_avg < 0 ? "NA" : sprintf("%.2f", gpu_avg)),
+                    (gpu_max_out < 0 ? "NA" : sprintf("%.2f", gpu_max_out))
+            }' "$TEGRA_TMP"
+        )
+    fi
+
+    local LOG_LINE
+    LOG_LINE=$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' \
+        "$STEP_NAME" "$START_HUMAN" "$END_HUMAN" "$WALL_SEC" "$CPU_PCT" \
+        "$TG_CPU_AVG" "$TG_CPU_MAX" "$TG_GPU_AVG" "$TG_GPU_MAX" "$STATUS")
+    printf '%s\n' "$LOG_LINE" >> "$PERF_LOG"
+    printf '%s\n' "$LOG_LINE" >&2
+
+    rm -f "$TIME_TMP" "$TEGRA_TMP"
+    return $STATUS
+}
+# ---------------------------------------------------------------------------------------------
+# End logging setup
+# ---------------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------------------------
 # Set thresholds
 # ---------------------------------------------------------------------------------------------
 POSITIVE_THRESH=3 # Positive FSHD
@@ -44,13 +149,11 @@ LOD_THRESH=0.95 # Limit of detection threshold for FSHD
 # ---------------------------------------------------------------------------------------------
 # Positive case - Stop sequencing
 # ---------------------------------------------------------------------------------------------
+
 positive_status=false
-read positive_status < <(
-awk -v thresh="$POSITIVE_THRESH" -F'\t' '
-$1=="Diagnostic/Positive" && $7>=thresh {
-    print "true"
-}' "${STATUS_TSV}"
-)
+pos_out=$(run_logged "positive_fshd_check" \
+    "awk -v thresh='$POSITIVE_THRESH' -F'\t' '\$1==\"Diagnostic/Positive\" && \$7>=thresh { print \"true\" }' '$STATUS_TSV'")
+[ -n "$pos_out" ] && read -r positive_status <<< "$pos_out"
 
 # Check awk exit code
 # Stop the script if it's enough
@@ -82,20 +185,9 @@ fi
 # ---------------------------------------------------------------------------------------------
 # Easy negative case (1x 4qA with more than 10 copies and 1x 4qB)
 # ---------------------------------------------------------------------------------------------
-read negative_status message < <(
-awk -F'\t' '
-$1 == "Diagnostic/Negative" { 
-    count++; 
-    if ($NF >= 3) ok++ 
-} 
-END { 
-    if (count == 2 && ok == 2) {
-        print "True", "✅ Have a non-permissive 4qA and 4qB reads with ≥3 reads each"; 
-    } else {
-        print "False", "❌ One or both Diagnostic/Negative rows have <3 reads" 
-    }
-}' $STATUS_TSV
-)
+neg_out=$(run_logged "negative_fshd_check" \
+    "awk -F'\t' '\$1 == \"Diagnostic/Negative\" { count++; if (\$NF >= 3) ok++ } END { if (count == 2 && ok == 2) print \"True\", \"✅ Have a non-permissive 4qA and 4qB reads with ≥3 reads each\"; else print \"False\", \"❌ One or both Diagnostic/Negative rows have <3 reads\" }' '$STATUS_TSV'")
+read negative_status message <<< "$neg_out"
 
 echo "$message"
 
@@ -108,6 +200,9 @@ echo "$message"
 # Floor the MappedEstimatedCopies to integer for counting purpose
 # If both lengths have >= NEGATIVE_THRESH, then stop sequencing
 # ---------------------------------------------------------------------------------------------
+run_logged "negative_fshd_check_2" \
+    "grep -q 'Complete 4q' '$SUMMARY_TSV' && echo 'complete 4q found' || echo 'no complete 4q'"
+
 grep -q "Complete 4q" $SUMMARY_TSV && awk -F'\t' -v threshold="$NEGATIVE_THRESH" '
 NR==1 {
     for (i=1; i<=NF; i++) {
@@ -179,17 +274,15 @@ END {
 check_sex_coverage() {
     PANEL_COV_TXT="${SAMPLE_DIR}/all_myopathy_panel_chm13_coverage.txt"
     PANEL_COV_BED="${SAMPLE_DIR}/all_myopathy_panel_chm13_coverage.bed"
-    
-    samtools depth -a -b $MYOP_PANEL_BED $MYOP_BAM > $PANEL_COV_TXT
-    
-    BED_COV="${SAMPLE_DIR}/myop_panel_chm13_coverage.bed"
-    awk -F'\t' '{print $1"\t"$2"\t"$2"\t"$3}' $PANEL_COV_TXT > "$PANEL_COV_BED"
 
-    bedtools intersect -a $MYOP_PANEL_BED -b $PANEL_COV_BED -wa -wb > ${SAMPLE_DIR}/all_panel_cov_intersect.bed
+    run_logged "check_sex_coverage_depth" \
+        "samtools depth -@ 6 -a -b '$MYOP_PANEL_BED' '$MYOP_BAM' | awk -F'\t' '{print \$1\"\t\"\$2\"\t\"\$2\"\t\"\$3}' > '$PANEL_COV_BED'"
 
-    # Remove chrY from bed file
-    grep -v "^chrY" ${SAMPLE_DIR}/all_panel_cov_intersect.bed > ${SAMPLE_DIR}/all_panel_cov_intersect_nochrY.bed
-    mv ${SAMPLE_DIR}/all_panel_cov_intersect_nochrY.bed ${SAMPLE_DIR}/all_panel_cov_intersect.bed
+    NOY_PANEL="${SAMPLE_DIR}/myop_panel_noY.bed"
+    grep -v "^chrY" "$MYOP_PANEL_BED" > "$NOY_PANEL"
+
+    run_logged "check_sex_coverage_intersect" \
+        "bedtools intersect -a '$NOY_PANEL' -b '$PANEL_COV_BED' -wa -wb > ${SAMPLE_DIR}/all_panel_cov_intersect.bed"
     
     # Check average coverage of chrX and autosomal chr
     read sex coverage_thresh_chrX avgX avgAuto diff < <(
@@ -227,16 +320,16 @@ coverage_function() {
 
     echo "COVERAGE"
     # Samtools depth to get coverage over myopathy panel genes
-    samtools depth -a -b $TMP_PANEL $MYOP_BAM > $COVERAGE_OUTPUT
-
     # Currently col 2 is coordinate and col 3 is depth
     # want to make it col 2 and col 3 is coordinate (duplicated col2)
     BED_COV="${SAMPLE_DIR}/myop_panel_chm13_coverage.bed"
-    awk -F'\t' '{print $1"\t"$2"\t"$2"\t"$3}' $COVERAGE_OUTPUT > "$BED_COV"
+    run_logged "samtools_depth_panel" \
+        "samtools depth -@ 6 -a -b '$TMP_PANEL' '$MYOP_BAM' | awk -F'\t' '{print \$1\"\t\"\$2\"\t\"\$2\"\t\"\$3}' > '$BED_COV'"
 
     echo "INTERSECT"
     # get intersected regions of coverage and panel
-    bedtools intersect -a $TMP_PANEL -b $BED_COV -wa -wb > ${SAMPLE_DIR}/panel_cov_intersect.bed
+    run_logged "bedtools_intersect_panel" \
+        "bedtools intersect -a $TMP_PANEL -b $BED_COV -wa -wb > ${SAMPLE_DIR}/panel_cov_intersect.bed"
 
     if awk -F'\t' '
     NR > 1 && $1 != "chrX" && $1 != "chrY" { exit 1 }
@@ -248,29 +341,30 @@ coverage_function() {
         # COVERAGE_THRESH_CHRX=$(check_sex_coverage)
     fi
 
-    awk -v cov_thresh="$COVERAGE_THRESH", \
-        -v chrX_thresh="$COVERAGE_THRESH_CHRX", \
+    run_logged "awk_coverage_summary" \
+        "awk -v cov_thresh='$COVERAGE_THRESH' \
+        -v chrX_thresh='$COVERAGE_THRESH_CHRX' \
         -F'\t' '
     {
-        chrom = $1
-        gene = $4
-        cov  = $8
+        chrom = \$1
+        gene = \$4
+        cov  = \$8
 
         sum_cov[gene] += cov
         base_count[gene]++
-        gene_chr[gene] = chrom   # store chromosome per gene
+        gene_chr[gene] = chrom
 
-        if (chrom == "chrX" && cov < chrX_thresh)
+        if (chrom == \"chrX\" && cov < chrX_thresh)
             under[gene]++
-        else if (chrom != "chrX" && cov < cov_thresh)
+        else if (chrom != \"chrX\" && cov < cov_thresh)
             under[gene]++
 
     }
 
     END {
-        printf "%-20s\t%-15s\t%-10s\t%-15s\t%-18s\t%-15s\t%s\n",
-            "Gene", "Avg_Coverage", "Length", "Total_Coverage",
-            "Bases_Under_Threshold", "Pct_Bases_Above", "Pass_Threshold"
+        printf \"%-20s\t%-15s\t%-10s\t%-15s\t%-18s\t%-15s\t%s\n\",
+            \"Gene\", \"Avg_Coverage\", \"Length\", \"Total_Coverage\",
+            \"Bases_Under_Threshold\", \"Pct_Bases_Above\", \"Pass_Threshold\"
 
         for (g in sum_cov) {
             total = base_count[g]
@@ -278,33 +372,36 @@ coverage_function() {
             above_pct = 1 - (under_count / total)
             avg = sum_cov[g] / total
 
-            # Select threshold based on chromosome
-            if (gene_chr[g] == "chrX")
+            if (gene_chr[g] == \"chrX\")
                 threshold = chrX_thresh
             else
                 threshold = cov_thresh
 
-            pass = (avg >= threshold && above_pct >= 0.95 ? "YES" : "NO")
+            pass = (avg >= threshold && above_pct >= 0.95 ? \"YES\" : \"NO\")
 
-            printf "%-20s\t%-15.2f\t%-10d\t%-15d\t%-18d\t%-15.3f\t%s\n",
+            printf \"%-20s\t%-15.2f\t%-10d\t%-15d\t%-18d\t%-15.3f\t%s\n\",
                 g, avg, total, sum_cov[g], under_count, above_pct, pass
         }
-    }' "${SAMPLE_DIR}/panel_cov_intersect.bed" > "$output"
+    }' '${SAMPLE_DIR}/panel_cov_intersect.bed' > '$output'"
 
-
-    # Remove genes with complete coverage from tmp panel bed file
-    while IFS=$'\t' read -r gene cov_avg length  total_cov    bases_under_thresh prop_above_thresh   pass_thresh;
-    do
-        # echo "Removing gene with complete coverage: $gene"
-        # echo "Gene: $gene, Pass Threshold: $pass_thresh"
-        if [ "$pass_thresh" == "YES" ]; then
-            # gene="$(echo "$gene" | tr -d '[:space:]')"
-            gene="$(echo "$gene" | sed -e 's/[[:space:]]*$//')"
-            # echo "Gene $gene has complete coverage. Removing from temp panel."
-            grep -v "$gene" $TMP_PANEL > "${TMP_PANEL}.tmp"
-            mv "${TMP_PANEL}.tmp" $TMP_PANEL
-        fi
-    done < ${SAMPLE_DIR}/genes_complete_coverage.txt
+    # Single-pass exact-match removal of genes that passed coverage
+    PASSFILE="${SAMPLE_DIR}/genes_complete_coverage.txt"
+    if awk -F'\t' -v passfile="$PASSFILE" '
+        FILENAME == passfile {
+            if (FNR == 1) next                        # skip printf header
+            g = $1; gsub(/[[:space:]]+$/, "", g)      # strip printf padding
+            p = $7; gsub(/[[:space:]]+$/, "", p)
+            if (p == "YES") drop[g] = 1
+            next
+        }
+        !($4 in drop)
+    ' "$PASSFILE" "$TMP_PANEL" > "${TMP_PANEL}.tmp"
+    then
+        mv "${TMP_PANEL}.tmp" "$TMP_PANEL"
+    else
+        echo "⚠️  Gene-removal awk failed; leaving $TMP_PANEL unchanged"
+        rm -f "${TMP_PANEL}.tmp"
+    fi
 }
     # if (print_header == 1) {
     #     }
@@ -374,7 +471,9 @@ END {
 
 if [ "$count" -gt 0 ]; then
     echo "Found $count rows with 4qA and MappedEstimatedCopies > 3"
-    lod=$(bash ${REALPATH}/spanning_ruleout_sample.sh "$SUMMARY_TSV")
+
+    lod=$(run_logged "spanning_ruleout" \
+        "bash '${REALPATH}/spanning_ruleout_sample.sh' '$SUMMARY_TSV'")
 
     echo "LOD: $lod"
     lod_prob=$(echo $lod | cut -f2 -d" ")

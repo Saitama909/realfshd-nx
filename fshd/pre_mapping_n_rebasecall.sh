@@ -16,7 +16,7 @@ PREFIX="SAMPLE"
 REALPATH=$(dirname "$(readlink -f "$0")")
 REF=${REALPATH}/genome/hs1.fa
 REGION_BED=${REALPATH}/inputs/d4z4_region.chm13.bed
-MMI="${REALPATH}/inputs/hs1.mmi"
+MMI="${REALPATH}/inputs/hs1_no_split.mmi"
 
 # Paths to tools
 SAMTOOLS=samtools
@@ -156,15 +156,15 @@ UBAM_BASE=$(basename $INPUT_UBAM)
 INPUT_FASTQ="${OUTDIR}/${UBAM_BASE%.bam}.fastq"
 
 run_logged "samtools_fastq" \
-    "$SAMTOOLS fastq -TMM,ML \"$INPUT_UBAM\" > \"$INPUT_FASTQ\""
+    "$SAMTOOLS fastq -@ 8 -TMM,ML \"$INPUT_UBAM\" > \"$INPUT_FASTQ\""
 
 echo "minimap"
 CHM13_BAM="${OUTDIR}/${PREFIX}_fast_chm13.bam"
 SPLIT_PREFIX="${OUTDIR}/${PREFIX}_hs1_split_tmp"
 
-echo "RUNNING: $MINIMAP2 -K 50M -x $MODE -a $MMI $INPUT_FASTQ --split-prefix $SPLIT_PREFIX -t 6 | $SAMTOOLS sort -o $CHM13_BAM" >> "$PERF_LOG"
+echo "RUNNING: $MINIMAP2 -K 30M -x $MODE -a $MMI $INPUT_FASTQ -t 8 | $SAMTOOLS sort -o $CHM13_BAM" >> "$PERF_LOG"
 run_logged "minimap2_sort" \
-    "$MINIMAP2 -K 50M -x \"$MODE\" -a \"$MMI\" \"$INPUT_FASTQ\" --split-prefix \"$SPLIT_PREFIX\" -t 6 | $SAMTOOLS sort -o \"$CHM13_BAM\""
+    "$MINIMAP2 -K 30M -x \"$MODE\" -a \"$MMI\" \"$INPUT_FASTQ\" -t 8 | $SAMTOOLS sort -@ 8 -o \"$CHM13_BAM\""
 
 run_logged "samtools_index_chm13" \
     "$SAMTOOLS index \"$CHM13_BAM\""
@@ -173,7 +173,7 @@ echo "extracting reads mapping to the region of interest"
 # Get d4z4 reads
 D4Z4_ROI_BAM="${OUTDIR}/${PREFIX}_d4z4_reads_of_interest_fast.bam"
 run_logged "extract_roi_sort" \
-    "$SAMTOOLS view -L \"$REGION_BED\" -Sb \"$CHM13_BAM\" | $SAMTOOLS sort -o \"$D4Z4_ROI_BAM\""
+    "$SAMTOOLS view -L \"$REGION_BED\" -Sb \"$CHM13_BAM\" | $SAMTOOLS sort -@ 8 -o \"$D4Z4_ROI_BAM\""
 
 run_logged "samtools_index_roi" \
     "$SAMTOOLS index \"$D4Z4_ROI_BAM\""
